@@ -3,18 +3,49 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
+import React, { useState, useEffect } from 'react';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { UserProfile } from '../src/types';
+import { getUserProfile } from '../src/utils/storage';
+import { ProfileSetup } from '../src/screens/ProfileSetup';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [profileChecked, setProfileChecked] = useState(false);
 
-  if (!loaded) {
-    // Async font loading only occurs in development.
+  useEffect(() => {
+    checkUserProfile();
+  }, []);
+
+  const checkUserProfile = async () => {
+    try {
+      console.log('Layout: Checking for existing user profile...');
+      const profile = await getUserProfile();
+      console.log('Layout: Retrieved profile:', profile);
+      setUserProfile(profile);
+    } catch (error) {
+      console.error('Error checking user profile:', error);
+    } finally {
+      setProfileChecked(true);
+    }
+  };
+
+  const handleProfileComplete = (profile: UserProfile) => {
+    console.log('Layout: Profile setup completed, received profile:', profile);
+    setUserProfile(profile);
+  };
+
+  if (!loaded || !profileChecked) {
     return null;
+  }
+
+  if (!userProfile) {
+    return <ProfileSetup onComplete={handleProfileComplete} />;
   }
 
   return (
