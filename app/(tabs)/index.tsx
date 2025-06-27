@@ -16,6 +16,8 @@ import { getMeasurementEquivalents, convertBiometricToAmount } from '../../src/u
 import { searchFoods, getFoodById, getPopularFoods, isUSDAApiReady, getApiStatus, FoodItem } from '../../src/data/foodDatabase';
 import { formatVolume } from '../../src/utils/unitConversions';
 import { CalendarPicker } from '../../src/components/CalendarPicker';
+import { FoodCamera } from '../../src/components/FoodCamera';
+import { colors, getElevationStyle } from '../../src/styles/colors';
 
 export default function FoodScreen() {
   const [foodEntries, setFoodEntries] = useState<FoodEntry[]>([]);
@@ -40,6 +42,7 @@ export default function FoodScreen() {
   const [apiStatus, setApiStatus] = useState<{ configured: boolean; message: string }>({ configured: false, message: '' });
   const [isSearching, setIsSearching] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showFoodCamera, setShowFoodCamera] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -435,6 +438,37 @@ export default function FoodScreen() {
               {editingEntry ? 'Edit Food Entry' : `Add Food to ${selectedMeal.charAt(0).toUpperCase() + selectedMeal.slice(1)}`}
             </Text>
             
+            {/* Add Food Input Method Selection */}
+            {!editingEntry && !selectedFood && (
+              <View style={styles.inputMethodSection}>
+                <Text style={styles.inputMethodTitle}>How would you like to add food?</Text>
+                <View style={styles.inputMethodButtons}>
+                  <TouchableOpacity 
+                    style={styles.inputMethodButton}
+                    onPress={() => {/* Current search flow - no changes needed */}}
+                  >
+                    <Text style={styles.inputMethodIcon}>🔍</Text>
+                    <Text style={styles.inputMethodText}>Search Database</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.inputMethodButton}
+                    onPress={() => {
+                      setShowAddFood(false);
+                      setShowFoodCamera(true);
+                    }}
+                  >
+                    <Text style={styles.inputMethodIcon}>📷</Text>
+                    <Text style={styles.inputMethodText}>Camera Recognition</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                <View style={styles.inputMethodDivider}>
+                  <Text style={styles.inputMethodDividerText}>or continue with search below</Text>
+                </View>
+              </View>
+            )}
+            
             {/* API Status Indicator */}
             {!apiStatus.configured && (
               <View style={styles.apiWarning}>
@@ -602,6 +636,32 @@ export default function FoodScreen() {
           </View>
         </View>
       </Modal>
+      
+      <FoodCamera
+        visible={showFoodCamera}
+        onClose={() => setShowFoodCamera(false)}
+        onFoodRecognized={(result) => {
+          // Convert camera recognition result to food format
+          const recognizedFood = {
+            id: `camera_${Date.now()}`,
+            name: result.foodName,
+            caloriesPerGram: result.estimatedCalories / result.estimatedWeight,
+            protein: 0, // Will be estimated based on food type
+            carbs: 0,
+            fat: 0,
+            fiber: 0,
+          };
+          
+          setSelectedFood(recognizedFood);
+          setAmount(result.estimatedWeight.toString());
+          setUnit('g');
+          setShowFoodCamera(false);
+          setShowAddFood(true);
+          
+          // Calculate nutrition values
+          calculateNutrition(recognizedFood, result.estimatedWeight.toString(), 'g');
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -609,55 +669,51 @@ export default function FoodScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#3c3c3c',
+    backgroundColor: colors.background.primary,
   },
   header: {
-    backgroundColor: '#2d2d2d',
+    backgroundColor: colors.surface.level1,
     padding: 20,
     alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: '#dc2626',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.primary[500],
+    ...colors.shadows.small,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 5,
-    color: '#ffffff',
+    color: colors.text.primary,
   },
   date: {
     fontSize: 16,
-    color: '#c5c5c5',
+    color: colors.text.secondary,
     marginBottom: 10,
   },
   calories: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#a82828',
+    color: colors.primary[500],
   },
   protein: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#c5c5c5',
+    color: colors.text.secondary,
   },
   measurementGuide: {
-    backgroundColor: '#4a4a4a',
+    ...getElevationStyle(2),
     margin: 15,
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#a82828',
-    shadowColor: '#a82828',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    borderColor: colors.primary[500],
   },
   guideTitle: {
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 10,
     textAlign: 'center',
-    color: '#ffffff',
+    color: colors.text.primary,
   },
   guideRow: {
     flexDirection: 'row',
@@ -665,23 +721,18 @@ const styles = StyleSheet.create({
   },
   guideItem: {
     fontSize: 12,
-    color: '#c5c5c5',
+    color: colors.text.secondary,
   },
   mealsContainer: {
     padding: 15,
   },
   mealSection: {
-    backgroundColor: '#4a4a4a',
+    ...getElevationStyle(1),
     marginBottom: 15,
-    borderRadius: 10,
+    borderRadius: 12,
     padding: 15,
     borderWidth: 1,
-    borderColor: '#6a6a6a',
-    shadowColor: '#a82828',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: colors.border.secondary,
   },
   mealHeader: {
     flexDirection: 'row',
@@ -692,16 +743,16 @@ const styles = StyleSheet.create({
   mealTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#ffffff',
+    color: colors.text.primary,
   },
   mealCalories: {
     fontSize: 16,
-    color: '#a82828',
+    color: colors.primary[500],
     fontWeight: '500',
   },
   mealProtein: {
     fontSize: 14,
-    color: '#c5c5c5',
+    color: colors.text.secondary,
     fontWeight: '400',
   },
   mealNutrition: {
@@ -761,15 +812,17 @@ const styles = StyleSheet.create({
     color: '#c5c5c5',
   },
   addButton: {
-    backgroundColor: '#a82828',
-    padding: 10,
-    borderRadius: 5,
+    backgroundColor: colors.primary[500],
+    padding: 12,
+    borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
+    ...colors.shadows.button,
   },
   addButtonText: {
-    color: '#fff',
+    color: colors.text.primary,
     fontWeight: '600',
+    fontSize: 16,
   },
   modalOverlay: {
     flex: 1,
@@ -778,18 +831,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#3c3c3c',
+    backgroundColor: colors.surface.level2,
     margin: 20,
     padding: 20,
-    borderRadius: 10,
+    borderRadius: 12,
     width: '90%',
     maxHeight: '80%',
+    ...colors.shadows.large,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
+    color: colors.text.primary,
   },
   inputGroup: {
     marginBottom: 15,
@@ -1021,5 +1076,51 @@ const styles = StyleSheet.create({
     backgroundColor: '#4a4a4a',
     borderRadius: 6,
     marginBottom: 8,
+  },
+  inputMethodSection: {
+    marginBottom: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#6a6a6a',
+  },
+  inputMethodTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 15,
+    textAlign: 'center',
+    color: '#ffffff',
+  },
+  inputMethodButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 15,
+  },
+  inputMethodButton: {
+    backgroundColor: '#4a4a4a',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    minWidth: 120,
+    borderWidth: 1,
+    borderColor: '#6a6a6a',
+  },
+  inputMethodIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  inputMethodText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  inputMethodDivider: {
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  inputMethodDividerText: {
+    color: '#c5c5c5',
+    fontSize: 12,
+    fontStyle: 'italic',
   },
 });

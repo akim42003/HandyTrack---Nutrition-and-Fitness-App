@@ -8,6 +8,7 @@ import {
   ScrollView,
   Dimensions,
 } from 'react-native';
+import { colors, getElevationStyle } from '../styles/colors';
 
 const { width } = Dimensions.get('window');
 
@@ -207,16 +208,17 @@ export const CalendarPicker: React.FC<CalendarPickerProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.background.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   calendarContainer: {
-    backgroundColor: '#3c3c3c',
-    borderRadius: 10,
+    backgroundColor: colors.surface.level2,
+    borderRadius: 12,
     width: width * 0.9,
     maxHeight: '80%',
     maxWidth: 400,
+    ...colors.shadows.large,
   },
   calendarHeader: {
     flexDirection: 'row',
@@ -224,24 +226,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#6a6a6a',
+    borderBottomColor: colors.border.secondary,
   },
   calendarTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#ffffff',
+    color: colors.text.primary,
   },
   closeButton: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#6a6a6a',
+    backgroundColor: colors.surface.level3,
     justifyContent: 'center',
     alignItems: 'center',
   },
   closeButtonText: {
     fontSize: 20,
-    color: '#ffffff',
+    color: colors.text.primary,
     fontWeight: 'bold',
   },
   calendarScrollView: {
@@ -251,9 +253,10 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#a82828',
+    backgroundColor: colors.primary[500],
     justifyContent: 'center',
     alignItems: 'center',
+    ...colors.shadows.small,
   },
   navButtonText: {
     fontSize: 24,

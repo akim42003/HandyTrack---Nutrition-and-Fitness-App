@@ -14,6 +14,7 @@ import {
 import { UserProfile, FoodEntry, WorkoutSession } from '../../src/types';
 import { getUserProfile, getFoodEntries, getWorkoutSessions, saveUserProfile } from '../../src/utils/storage';
 import { formatWeight, formatVolume, kgToLbs, parseWeight, getDisplayWeight } from '../../src/utils/unitConversions';
+import { colors, getElevationStyle } from '../../src/styles/colors';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -326,39 +327,37 @@ export default function ProgressScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#3c3c3c',
+    backgroundColor: colors.background.primary,
   },
   header: {
-    backgroundColor: '#4a4a4a',
+    backgroundColor: colors.surface.level1,
     padding: 20,
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#6a6a6a',
+    borderBottomColor: colors.border.secondary,
+    ...colors.shadows.small,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 5,
+    color: colors.text.primary,
   },
   subtitle: {
     fontSize: 16,
-    color: '#c5c5c5',
+    color: colors.text.secondary,
   },
   section: {
-    backgroundColor: '#4a4a4a',
+    ...getElevationStyle(1),
     margin: 15,
     padding: 15,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: 12,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
+    color: colors.text.primary,
   },
   statsContainer: {
     margin: 15,
@@ -369,31 +368,27 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   statCard: {
-    backgroundColor: '#4a4a4a',
+    ...getElevationStyle(1),
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
     flex: 1,
     marginHorizontal: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   statValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#a82828',
+    color: colors.primary[500],
   },
   statTitle: {
     fontSize: 14,
     fontWeight: '600',
     marginTop: 5,
+    color: colors.text.primary,
   },
   statSubtitle: {
     fontSize: 12,
-    color: '#c5c5c5',
+    color: colors.text.secondary,
     marginTop: 2,
   },
   measurementGrid: {
@@ -412,10 +407,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 4,
+    color: colors.text.primary,
   },
   measurementValue: {
     fontSize: 12,
-    color: '#c5c5c5',
+    color: colors.text.secondary,
   },
   goalItem: {
     marginBottom: 20,
@@ -429,26 +425,27 @@ const styles = StyleSheet.create({
   goalLabel: {
     fontSize: 16,
     fontWeight: '600',
+    color: colors.text.primary,
   },
   goalValue: {
     fontSize: 16,
-    color: '#a82828',
+    color: colors.primary[500],
     fontWeight: '500',
   },
   progressBar: {
     height: 8,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: colors.surface.level3,
     borderRadius: 4,
     marginBottom: 8,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#a82828',
+    backgroundColor: colors.primary[500],
     borderRadius: 4,
   },
   goalSubtext: {
     fontSize: 12,
-    color: '#c5c5c5',
+    color: colors.text.secondary,
   },
   nutritionTargets: {
     flexDirection: 'row',

@@ -14,6 +14,7 @@ import { CalendarPicker } from '../../src/components/CalendarPicker';
 import { ExerciseEntry, ExerciseSet, WorkoutSession, UserProfile } from '../../src/types';
 import { getExerciseEntries, getWorkoutSessions, saveExerciseEntry, saveWorkoutSession, updateWorkoutSession, deleteWorkoutSession, getUserProfile } from '../../src/utils/storage';
 import { formatWeight, parseWeight, getDisplayWeight } from '../../src/utils/unitConversions';
+import { colors, getElevationStyle } from '../../src/styles/colors';
 
 export default function ExerciseScreen() {
   const [workoutSessions, setWorkoutSessions] = useState<WorkoutSession[]>([]);
@@ -430,49 +431,47 @@ export default function ExerciseScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#3c3c3c',
+    backgroundColor: colors.background.primary,
   },
   header: {
-    backgroundColor: '#4a4a4a',
+    backgroundColor: colors.surface.level1,
     padding: 20,
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#6a6a6a',
+    borderBottomColor: colors.border.secondary,
+    ...colors.shadows.small,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 5,
+    color: colors.text.primary,
   },
   subtitle: {
     fontSize: 16,
-    color: '#c5c5c5',
+    color: colors.text.secondary,
   },
   startWorkoutContainer: {
     padding: 20,
     alignItems: 'center',
   },
   startWorkoutButton: {
-    backgroundColor: '#a82828',
+    backgroundColor: colors.primary[500],
     paddingVertical: 15,
     paddingHorizontal: 30,
-    borderRadius: 10,
+    borderRadius: 12,
+    ...colors.shadows.button,
   },
   startWorkoutText: {
-    color: '#fff',
+    color: colors.text.primary,
     fontSize: 18,
     fontWeight: '600',
   },
   currentWorkout: {
     margin: 15,
-    backgroundColor: '#4a4a4a',
-    borderRadius: 10,
+    ...getElevationStyle(2),
+    borderRadius: 12,
     padding: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   workoutHeader: {
     flexDirection: 'row',
@@ -484,41 +483,44 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     flex: 1,
+    color: colors.text.primary,
   },
   workoutActions: {
     flexDirection: 'row',
     gap: 10,
   },
   finishButton: {
-    backgroundColor: '#28a745',
+    backgroundColor: colors.accent.green,
     paddingVertical: 8,
     paddingHorizontal: 15,
-    borderRadius: 5,
+    borderRadius: 8,
+    ...colors.shadows.small,
   },
   finishButtonText: {
-    color: '#fff',
+    color: colors.text.primary,
     fontWeight: '600',
   },
   cancelButton: {
-    backgroundColor: '#6c757d',
+    backgroundColor: colors.surface.level3,
     paddingVertical: 8,
     paddingHorizontal: 15,
-    borderRadius: 5,
+    borderRadius: 8,
   },
   cancelButtonText: {
-    color: '#fff',
+    color: colors.text.secondary,
     fontWeight: '600',
   },
   exerciseSection: {
     marginBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#6a6a6a',
+    borderBottomColor: colors.border.secondary,
     paddingBottom: 15,
   },
   exerciseName: {
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 10,
+    color: colors.text.primary,
   },
   setRow: {
     flexDirection: 'row',
@@ -529,44 +531,50 @@ const styles = StyleSheet.create({
     width: 30,
     fontSize: 16,
     fontWeight: '600',
+    color: colors.text.primary,
   },
   setInput: {
     borderWidth: 1,
-    borderColor: '#6a6a6a',
-    borderRadius: 5,
+    borderColor: colors.border.secondary,
+    borderRadius: 8,
     padding: 8,
     marginHorizontal: 5,
     textAlign: 'center',
     flex: 1,
+    backgroundColor: colors.surface.level1,
+    color: colors.text.primary,
   },
   rpeInput: {
     flex: 0.5,
   },
   setLabel: {
     fontSize: 12,
-    color: '#c5c5c5',
+    color: colors.text.secondary,
     marginRight: 10,
   },
   addSetButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: colors.surface.level2,
     padding: 10,
-    borderRadius: 5,
+    borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
+    borderWidth: 1,
+    borderColor: colors.primary[500],
   },
   addSetText: {
-    color: '#a82828',
+    color: colors.primary[500],
     fontWeight: '600',
   },
   addExerciseButton: {
-    backgroundColor: '#a82828',
+    backgroundColor: colors.primary[500],
     padding: 15,
-    borderRadius: 5,
+    borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
+    ...colors.shadows.button,
   },
   addExerciseText: {
-    color: '#fff',
+    color: colors.text.primary,
     fontWeight: '600',
   },
   historySection: {
