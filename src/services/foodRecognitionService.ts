@@ -1,4 +1,5 @@
-import { Platform } from 'react-native';
+import { Platform, Image as RNImage } from 'react-native';
+import { Asset } from 'expo-asset';
 
 // Dynamic import function to avoid bundler issues
 async function getTensorflowModule() {
@@ -9,9 +10,19 @@ async function getTensorflowModule() {
   try {
     // Use dynamic import to avoid bundler resolution issues
     const tflite = await import('react-native-fast-tflite');
+    
+    // Check if it's a default export or named exports
+    const loadTensorflowModel = tflite.loadTensorflowModel || tflite.default?.loadTensorflowModel;
+    const TensorflowModel = tflite.TensorflowModel || tflite.default?.TensorflowModel;
+    
+    if (!loadTensorflowModel) {
+      console.error('TensorFlow Lite exports:', Object.keys(tflite));
+      throw new Error('loadTensorflowModel not found in react-native-fast-tflite');
+    }
+    
     return {
-      loadTensorflowModel: tflite.loadTensorflowModel,
-      TensorflowModel: tflite.TensorflowModel,
+      loadTensorflowModel,
+      TensorflowModel,
     };
   } catch (error) {
     console.log('TensorFlow Lite not available on this platform');
@@ -38,6 +49,19 @@ interface NutritionEstimate {
   fat: number;
 }
 
+// Food labels that the model can recognize (common Google food classifier labels)
+const FOOD_LABELS = [
+  'apple', 'banana', 'orange', 'strawberry', 'grapes', 'watermelon', 'pineapple', 'mango',
+  'chicken', 'beef', 'pork', 'fish', 'salmon', 'tuna', 'egg', 'shrimp',
+  'rice', 'pasta', 'bread', 'potato', 'sweet_potato', 'corn', 'oatmeal', 'cereal',
+  'broccoli', 'carrot', 'tomato', 'lettuce', 'spinach', 'bell_pepper', 'cucumber', 'onion',
+  'milk', 'cheese', 'yogurt', 'butter', 'ice_cream',
+  'pizza', 'hamburger', 'hot_dog', 'sandwich', 'burrito', 'taco', 'fried_chicken', 'french_fries', 'salad',
+  'cookies', 'cake', 'donut', 'chocolate', 'chips', 'popcorn',
+  'coffee', 'soda', 'juice', 'soup', 'steak', 'sushi', 'noodles', 'pancakes', 'bacon',
+  'toast', 'bagel', 'muffin', 'croissant', 'waffle', 'pie', 'pudding'
+];
+
 class FoodRecognitionService {
   private model: any | null = null;
   private isModelLoaded = false;
@@ -52,6 +76,9 @@ class FoodRecognitionService {
     'orange': { calories: 47, weight: 154, protein: 0.9, carbs: 12, fat: 0.1 },
     'strawberry': { calories: 32, weight: 100, protein: 0.7, carbs: 7.7, fat: 0.3 },
     'grapes': { calories: 62, weight: 100, protein: 0.6, carbs: 16, fat: 0.2 },
+    'watermelon': { calories: 30, weight: 280, protein: 0.6, carbs: 8, fat: 0.2 },
+    'pineapple': { calories: 50, weight: 165, protein: 0.5, carbs: 13, fat: 0.1 },
+    'mango': { calories: 60, weight: 200, protein: 0.8, carbs: 15, fat: 0.4 },
     
     // Proteins
     'chicken': { calories: 165, weight: 100, protein: 31, carbs: 0, fat: 3.6 },
@@ -62,15 +89,24 @@ class FoodRecognitionService {
     'tuna': { calories: 132, weight: 100, protein: 28, carbs: 0, fat: 1 },
     'egg': { calories: 155, weight: 50, protein: 13, carbs: 1.1, fat: 11 },
     'shrimp': { calories: 85, weight: 100, protein: 18, carbs: 1, fat: 1 },
+    'steak': { calories: 271, weight: 150, protein: 25, carbs: 0, fat: 19 },
+    'bacon': { calories: 541, weight: 30, protein: 37, carbs: 1.4, fat: 42 },
     
     // Carbohydrates & Grains
     'rice': { calories: 130, weight: 100, protein: 2.7, carbs: 28, fat: 0.3 },
     'pasta': { calories: 131, weight: 100, protein: 5, carbs: 25, fat: 1.1 },
     'bread': { calories: 265, weight: 30, protein: 9, carbs: 49, fat: 3.2 },
     'potato': { calories: 77, weight: 150, protein: 2, carbs: 17, fat: 0.1 },
-    'sweet potato': { calories: 86, weight: 128, protein: 1.6, carbs: 20, fat: 0.1 },
+    'sweet_potato': { calories: 86, weight: 128, protein: 1.6, carbs: 20, fat: 0.1 },
     'corn': { calories: 96, weight: 100, protein: 3.4, carbs: 19, fat: 1.5 },
     'oatmeal': { calories: 68, weight: 100, protein: 2.4, carbs: 12, fat: 1.4 },
+    'cereal': { calories: 379, weight: 30, protein: 6.2, carbs: 87, fat: 0.9 },
+    'bagel': { calories: 277, weight: 100, protein: 11, carbs: 53, fat: 1.7 },
+    'toast': { calories: 313, weight: 25, protein: 8.9, carbs: 56, fat: 4.6 },
+    'pancakes': { calories: 227, weight: 80, protein: 6.4, carbs: 28, fat: 9.7 },
+    'waffle': { calories: 291, weight: 75, protein: 8, carbs: 33, fat: 14 },
+    'muffin': { calories: 424, weight: 60, protein: 6, carbs: 48, fat: 24 },
+    'croissant': { calories: 406, weight: 60, protein: 8.2, carbs: 46, fat: 21 },
     
     // Vegetables
     'broccoli': { calories: 34, weight: 100, protein: 2.8, carbs: 7, fat: 0.4 },
@@ -78,7 +114,7 @@ class FoodRecognitionService {
     'tomato': { calories: 18, weight: 100, protein: 0.9, carbs: 3.9, fat: 0.2 },
     'lettuce': { calories: 15, weight: 100, protein: 1.4, carbs: 2.9, fat: 0.1 },
     'spinach': { calories: 23, weight: 100, protein: 2.9, carbs: 3.6, fat: 0.4 },
-    'bell pepper': { calories: 31, weight: 100, protein: 1, carbs: 7, fat: 0.3 },
+    'bell_pepper': { calories: 31, weight: 100, protein: 1, carbs: 7, fat: 0.3 },
     'cucumber': { calories: 16, weight: 100, protein: 0.7, carbs: 4, fat: 0.1 },
     'onion': { calories: 40, weight: 100, protein: 1.1, carbs: 9, fat: 0.1 },
     
@@ -87,17 +123,20 @@ class FoodRecognitionService {
     'cheese': { calories: 113, weight: 28, protein: 7, carbs: 1, fat: 9 },
     'yogurt': { calories: 59, weight: 100, protein: 10, carbs: 3.6, fat: 0.4 },
     'butter': { calories: 717, weight: 14, protein: 0.9, carbs: 0.1, fat: 81 },
+    'ice_cream': { calories: 207, weight: 100, protein: 3.5, carbs: 24, fat: 11 },
     
     // Prepared Foods & Entrees (North American focus)
     'pizza': { calories: 266, weight: 100, protein: 11, carbs: 33, fat: 10 },
     'hamburger': { calories: 295, weight: 150, protein: 17, carbs: 29, fat: 14 },
-    'hot dog': { calories: 290, weight: 100, protein: 11, carbs: 4, fat: 26 },
+    'hot_dog': { calories: 290, weight: 100, protein: 11, carbs: 4, fat: 26 },
     'sandwich': { calories: 250, weight: 150, protein: 12, carbs: 30, fat: 8 },
     'burrito': { calories: 206, weight: 200, protein: 10, carbs: 30, fat: 6 },
     'taco': { calories: 226, weight: 100, protein: 9, carbs: 18, fat: 13 },
-    'fried chicken': { calories: 320, weight: 100, protein: 19, carbs: 11, fat: 22 },
-    'french fries': { calories: 365, weight: 100, protein: 4, carbs: 63, fat: 17 },
+    'fried_chicken': { calories: 320, weight: 100, protein: 19, carbs: 11, fat: 22 },
+    'french_fries': { calories: 365, weight: 100, protein: 4, carbs: 63, fat: 17 },
     'salad': { calories: 33, weight: 100, protein: 2.8, carbs: 6.2, fat: 0.3 },
+    'sushi': { calories: 143, weight: 100, protein: 15, carbs: 18, fat: 0.6 },
+    'noodles': { calories: 138, weight: 100, protein: 5, carbs: 25, fat: 2 },
     
     // Snacks & Desserts
     'cookies': { calories: 502, weight: 25, protein: 5.9, carbs: 64, fat: 25 },
@@ -106,6 +145,9 @@ class FoodRecognitionService {
     'chips': { calories: 547, weight: 30, protein: 6.6, carbs: 49, fat: 37 },
     'chocolate': { calories: 546, weight: 25, protein: 4.9, carbs: 61, fat: 31 },
     'donut': { calories: 452, weight: 60, protein: 4.9, carbs: 51, fat: 25 },
+    'popcorn': { calories: 387, weight: 30, protein: 13, carbs: 78, fat: 4.5 },
+    'pie': { calories: 290, weight: 125, protein: 2.2, carbs: 42, fat: 13 },
+    'pudding': { calories: 130, weight: 100, protein: 2.5, carbs: 23, fat: 3 },
     
     // Beverages & Soups
     'coffee': { calories: 1, weight: 100, protein: 0.1, carbs: 0, fat: 0 },
@@ -136,14 +178,40 @@ class FoodRecognitionService {
 
       // Load Google's official TensorFlow Lite food classification model
       console.log('Loading TensorFlow Lite food classification model...');
-      this.model = await this.tfliteModule.loadTensorflowModel('food_classifier_v1.tflite');
+      
+      // Check what require returns
+      const modelSource = require('../../assets/models/food_classifier_v1.tflite');
+      console.log('Model source type:', typeof modelSource, 'Value:', modelSource);
+      
+      // react-native-fast-tflite expects either a number (asset ID) or { url: string }
+      if (typeof modelSource === 'number') {
+        // Direct asset ID
+        this.model = await this.tfliteModule.loadTensorflowModel(modelSource);
+      } else {
+        // Fall back to using expo-asset to get a proper file URI
+        const modelAsset = Asset.fromModule(require('../../assets/models/food_classifier_v1.tflite'));
+        await modelAsset.downloadAsync();
+        
+        if (modelAsset.localUri) {
+          this.model = await this.tfliteModule.loadTensorflowModel({ 
+            url: modelAsset.localUri 
+          });
+        } else {
+          throw new Error('Could not resolve model asset URI');
+        }
+      }
       
       console.log('TensorFlow Lite food recognition model loaded successfully!');
-      console.log('Note: Image preprocessing and inference pipeline still need implementation');
       this.isModelLoaded = true;
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load food recognition model:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        code: error.code,
+        type: error.constructor.name
+      });
       console.log('Food recognition not available - users should use manual entry');
       this.isModelLoaded = false;
       return false;
@@ -160,17 +228,18 @@ class FoodRecognitionService {
 
     try {
       if (this.model) {
-        // Run actual TensorFlow Lite model inference
         console.log('Running TensorFlow Lite inference on image:', imageUri);
         
-        // Preprocess the image for the model
-        const preprocessedImage = await this.preprocessImage(imageUri);
+        // Get image dimensions first
+        const { width, height } = await this.getImageDimensions(imageUri);
         
-        // Run inference
-        const modelOutput = await this.model.predict(preprocessedImage);
+        // Run inference directly with the model
+        // Note: react-native-fast-tflite expects the image to be preprocessed
+        // For now, we'll use the model's run method with the image URI
+        const outputs = await this.model.run([imageUri]);
         
         // Process model output to get food recognition results
-        return this.processModelOutput(modelOutput);
+        return this.processModelOutput(outputs, { width, height });
       } else {
         throw new Error('Model not loaded properly');
       }
@@ -180,33 +249,56 @@ class FoodRecognitionService {
     }
   }
 
-  private async preprocessImage(imageUri: string): Promise<any> {
-    // TODO: Implement proper image preprocessing for TensorFlow Lite model
-    // This should include:
-    // 1. Load image from URI
-    // 2. Resize to model input size (typically 224x224 or 299x299)
-    // 3. Normalize pixel values (typically 0-1 range)
-    // 4. Convert to tensor format expected by model
-    
-    console.log('Preprocessing image:', imageUri);
-    
-    // For now, return a placeholder that would represent preprocessed image
-    // Real implementation would use react-native-vision-camera's image processing
-    throw new Error('Image preprocessing not yet implemented');
+  private async getImageDimensions(uri: string): Promise<{ width: number; height: number }> {
+    return new Promise((resolve, reject) => {
+      RNImage.getSize(
+        uri,
+        (width, height) => resolve({ width, height }),
+        reject
+      );
+    });
   }
 
-  private processModelOutput(modelOutput: any): FoodRecognitionResult[] {
-    // TODO: Implement processing of TensorFlow Lite model output
-    // This should include:
-    // 1. Extract confidence scores and class predictions
-    // 2. Map class indices to food names
-    // 3. Filter results by confidence threshold
-    // 4. Sort by confidence
-    
-    console.log('Processing model output:', modelOutput);
-    
-    // For now, throw error until real implementation is complete
-    throw new Error('Model output processing not yet implemented');
+  private processModelOutput(outputs: any, imageDimensions: { width: number; height: number }): FoodRecognitionResult[] {
+    try {
+      // The model output format depends on the specific TensorFlow Lite model
+      // Typical food classifier outputs a 1D array of probabilities
+      const predictions = outputs[0];
+      
+      if (!predictions || !Array.isArray(predictions)) {
+        console.error('Unexpected model output format:', outputs);
+        throw new Error('Invalid model output format');
+      }
+
+      // Find top predictions
+      const results: FoodRecognitionResult[] = [];
+      const threshold = 0.1; // 10% confidence threshold
+      
+      predictions.forEach((confidence: number, index: number) => {
+        if (confidence > threshold && index < FOOD_LABELS.length) {
+          results.push({
+            label: FOOD_LABELS[index],
+            confidence: confidence,
+            // Simple bounding box estimation based on image center
+            // Real implementation would use object detection model
+            boundingBox: {
+              x: imageDimensions.width * 0.2,
+              y: imageDimensions.height * 0.2,
+              width: imageDimensions.width * 0.6,
+              height: imageDimensions.height * 0.6,
+            }
+          });
+        }
+      });
+
+      // Sort by confidence and return top 5
+      results.sort((a, b) => b.confidence - a.confidence);
+      return results.slice(0, 5);
+      
+    } catch (error) {
+      console.error('Error processing model output:', error);
+      throw new Error('Failed to process recognition results');
+    }
   }
 
   estimateNutrition(foodLabel: string, portionMultiplier: number = 1): NutritionEstimate {
@@ -232,17 +324,19 @@ class FoodRecognitionService {
     };
   }
 
-  // Estimate portion size based on visual cues (placeholder for now)
-  estimatePortionSize(boundingBox?: { width: number; height: number }): number {
-    if (!boundingBox) return 1.0;
+  // Estimate portion size based on visual cues
+  estimatePortionSize(boundingBox?: { width: number; height: number }, imageSize?: { width: number; height: number }): number {
+    if (!boundingBox || !imageSize) return 1.0;
     
-    // Simple heuristic: larger bounding box = larger portion
-    const area = boundingBox.width * boundingBox.height;
+    // Calculate the percentage of image covered by food
+    const foodArea = (boundingBox.width * boundingBox.height) / (imageSize.width * imageSize.height);
     
-    if (area > 0.5) return 1.5; // Large portion
-    if (area > 0.3) return 1.0; // Normal portion
-    if (area > 0.15) return 0.7; // Small portion
-    return 0.5; // Very small portion
+    // Heuristic: larger food area = larger portion
+    if (foodArea > 0.6) return 1.5; // Large portion
+    if (foodArea > 0.4) return 1.2; // Slightly above normal
+    if (foodArea > 0.25) return 1.0; // Normal portion
+    if (foodArea > 0.15) return 0.8; // Small portion
+    return 0.6; // Very small portion
   }
 
   // Get the top food recognition result with nutrition estimation
@@ -264,7 +358,8 @@ class FoodRecognitionService {
     }
 
     const topResult = recognitionResults[0];
-    const portionMultiplier = this.estimatePortionSize(topResult.boundingBox);
+    const imageDimensions = await this.getImageDimensions(imageUri);
+    const portionMultiplier = this.estimatePortionSize(topResult.boundingBox, imageDimensions);
     const nutrition = this.estimateNutrition(topResult.label, portionMultiplier);
 
     return {

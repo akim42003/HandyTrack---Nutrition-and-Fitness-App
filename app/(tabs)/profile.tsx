@@ -8,12 +8,14 @@ import {
   SafeAreaView,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native';
 import { UserProfile } from '../../src/types';
 import { getUserProfile, saveUserProfile, clearAllData } from '../../src/utils/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { calculateBiometricMeasurements, getMeasurementEquivalents } from '../../src/utils/biometricCalculator';
 import { formatWeight, formatHeight, formatWeightChange, parseWeight, parseHeight, parseWeightChange, getDisplayWeight, kgToLbs, formatVolume } from '../../src/utils/unitConversions';
+import { colors } from '../../src/styles/colors';
 
 export default function ProfileScreen() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -206,7 +208,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.title}>Profile</Text>
           <TouchableOpacity
@@ -390,7 +392,15 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#3c3c3c',
+    backgroundColor: colors.background.primary,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: Platform.select({
+      ios: 100, // Extra padding for iOS tab bar
+      android: 80,
+      default: 80,
+    }),
   },
   loadingContainer: {
     flex: 1,

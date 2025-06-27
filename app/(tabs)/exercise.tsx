@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   Modal,
+  Platform,
 } from 'react-native';
 import { CalendarPicker } from '../../src/components/CalendarPicker';
 import { ExerciseEntry, ExerciseSet, WorkoutSession, UserProfile } from '../../src/types';
@@ -261,7 +262,7 @@ export default function ExerciseScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <Text style={styles.title}>Exercise Tracking</Text>
@@ -432,6 +433,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.primary,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: Platform.select({
+      ios: 100, // Extra padding for iOS tab bar
+      android: 80,
+      default: 80,
+    }),
   },
   header: {
     backgroundColor: colors.surface.level1,

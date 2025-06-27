@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   TextInput,
+  Platform,
 } from 'react-native';
 import { FoodEntry, UserProfile } from '../../src/types';
 import { getFoodEntries, getUserProfile, saveFoodEntry, updateFoodEntry, deleteFoodEntry } from '../../src/utils/storage';
@@ -330,7 +331,7 @@ export default function FoodScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <Text style={styles.title}>Food Tracking</Text>
@@ -670,6 +671,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.primary,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: Platform.select({
+      ios: 100, // Extra padding for iOS tab bar
+      android: 80,
+      default: 80,
+    }),
   },
   header: {
     backgroundColor: colors.surface.level1,

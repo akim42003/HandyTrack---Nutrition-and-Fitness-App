@@ -11,8 +11,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "This app uses the camera to recognize food items and estimate calories for nutrition tracking."
-      }
+        "NSCameraUsageDescription": "This app uses the camera to recognize food items and estimate calories for nutrition tracking.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.akim42003.Visi-Cal"
     },
     "android": {
       "adaptiveIcon": {
@@ -20,9 +22,13 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [
-        "CAMERA"
+        "CAMERA",
+        "android.permission.CAMERA",
+        "CAMERA",
+        "android.permission.CAMERA"
       ],
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.akim42003.VisiCal"
     },
     "web": {
       "bundler": "metro",
@@ -49,6 +55,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "d0d944e0-5b9b-459a-b26c-07aef13a0070"
+      }
     }
   }
 }

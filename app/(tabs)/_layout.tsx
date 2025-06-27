@@ -7,6 +7,7 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { colors } from '@/src/styles/colors';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -14,16 +15,29 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: colors.primary[500],
+        tabBarInactiveTintColor: colors.text.tertiary,
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            position: 'absolute',
-          },
-          default: {},
-        }),
+        tabBarStyle: {
+          backgroundColor: colors.surface.level2,
+          borderTopWidth: 1,
+          borderTopColor: colors.border.secondary,
+          height: Platform.select({
+            ios: 83, // Standard iOS tab bar height with safe area
+            android: 65,
+            default: 65,
+          }),
+          paddingBottom: Platform.select({
+            ios: 20, // Safe area padding for iOS
+            android: 10,
+            default: 10,
+          }),
+          paddingTop: 8,
+          position: 'relative', // Remove absolute positioning
+          ...colors.shadows.small,
+        },
       }}>
       <Tabs.Screen
         name="index"

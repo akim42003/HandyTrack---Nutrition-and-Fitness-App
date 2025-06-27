@@ -10,6 +10,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  Platform,
 } from 'react-native';
 import { UserProfile, FoodEntry, WorkoutSession } from '../../src/types';
 import { getUserProfile, getFoodEntries, getWorkoutSessions, saveUserProfile } from '../../src/utils/storage';
@@ -239,7 +240,7 @@ export default function ProgressScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.title}>Progress Overview</Text>
           {userProfile && (
@@ -328,6 +329,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.primary,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: Platform.select({
+      ios: 100, // Extra padding for iOS tab bar
+      android: 80,
+      default: 80,
+    }),
   },
   header: {
     backgroundColor: colors.surface.level1,
