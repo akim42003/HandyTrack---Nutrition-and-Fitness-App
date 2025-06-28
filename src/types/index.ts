@@ -3,6 +3,7 @@ export interface UserProfile {
   name: string;
   height: number; // in cm (stored internally as metric)
   weight: number; // in kg (stored internally as metric)
+  startingWeight?: number; // in kg - baseline for progress tracking
   age: number;
   gender: 'male' | 'female';
   activityLevel: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';

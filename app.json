@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "BiometricFitness",
-    "slug": "BiometricFitness",
-    "version": "1.0.0",
+    "name": "BioCal",
+    "slug": "BioCal",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "biometricfitness",
+    "scheme": "biocal",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {

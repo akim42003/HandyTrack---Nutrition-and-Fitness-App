@@ -1,23 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   SafeAreaView,
-  Dimensions,
   TouchableOpacity,
   Modal,
   TextInput,
   Alert,
   Platform,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { UserProfile, FoodEntry, WorkoutSession } from '../../src/types';
 import { getUserProfile, getFoodEntries, getWorkoutSessions, saveUserProfile } from '../../src/utils/storage';
 import { formatWeight, formatVolume, kgToLbs, parseWeight, getDisplayWeight } from '../../src/utils/unitConversions';
 import { colors, getElevationStyle } from '../../src/styles/colors';
 
-const { width: screenWidth } = Dimensions.get('window');
 
 export default function ProgressScreen() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -35,6 +34,13 @@ export default function ProgressScreen() {
   useEffect(() => {
     loadProgressData();
   }, []);
+
+  // Refresh data when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      loadProgressData();
+    }, [])
+  );
 
   // Helper function to calculate protein from food entry
   const calculateEntryProtein = (entry: FoodEntry): number => {
@@ -110,6 +116,15 @@ export default function ProgressScreen() {
         workoutCount: recentWorkoutSessions.length,
         activeDays,
       });
+      
+      console.log('Progress: Weekly stats calculated:', {
+        avgCalories: Math.round(avgCalories),
+        avgProtein: Math.round(avgProtein * 10) / 10,
+        workoutCount: recentWorkoutSessions.length,
+        activeDays,
+        totalFoodEntries: recentFoodEntries.length,
+        uniqueDatesWithFood: Object.keys(dailyCalories).length
+      });
 
     } catch (error) {
       console.error('Error loading progress data:', error);
@@ -137,12 +152,19 @@ export default function ProgressScreen() {
       const updatedProfile = {
         ...userProfile,
         weight: weightInKg,
+        // Ensure startingWeight is preserved and set if missing
+        startingWeight: userProfile.startingWeight || userProfile.weight,
       };
+      
       
       await saveUserProfile(updatedProfile);
       setUserProfile(updatedProfile);
       setShowWeightUpdate(false);
       setNewWeight('');
+      
+      // Refresh all progress data to reflect weight change
+      await loadProgressData();
+      
       Alert.alert('Success', 'Weight updated successfully!');
     } catch (error) {
       Alert.alert('Error', 'Failed to update weight');
@@ -190,9 +212,53 @@ export default function ProgressScreen() {
     if (!userProfile) return null;
 
     const { goals, weight } = userProfile;
-    const weightDifference = goals.targetWeight - weight;
-    const progressPercentage = weightDifference === 0 ? 100 : 
-      Math.max(0, Math.min(100, ((weight - (weight + Math.abs(weightDifference))) / Math.abs(weightDifference)) * 100));
+    
+    // For proper progress tracking, we need a starting weight baseline
+    // Since we don't have startingWeight in the profile yet, we'll use current weight as baseline
+    // This means the progress bar will start at 0% and only fill as user updates their weight
+    
+    const currentWeight = weight; // Current weight in kg
+    const targetWeight = goals.targetWeight; // Target weight in kg
+    const startingWeight = userProfile.startingWeight || currentWeight; // Use startingWeight if available, otherwise current
+    const weightDifference = targetWeight - currentWeight; // Keep this for the goal subtext
+    
+    let progressPercentage = 0;
+    
+    // Calculate total weight change needed from starting point
+    const totalWeightChange = Math.abs(targetWeight - startingWeight);
+    
+    if (totalWeightChange === 0) {
+      // Already at goal weight when first set up
+      progressPercentage = 100;
+    } else {
+      // Determine if user is trying to lose or gain weight
+      const isLosingWeight = targetWeight < startingWeight;
+      const isGainingWeight = targetWeight > startingWeight;
+      
+      let weightProgress = 0;
+      
+      if (isLosingWeight) {
+        // For weight loss: progress = how much weight lost from starting point
+        if (currentWeight < startingWeight) {
+          weightProgress = startingWeight - currentWeight; // Positive when losing weight
+        }
+      } else if (isGainingWeight) {
+        // For weight gain: progress = how much weight gained from starting point  
+        if (currentWeight > startingWeight) {
+          weightProgress = currentWeight - startingWeight; // Positive when gaining weight
+        }
+      }
+      
+      // Calculate percentage (ensuring it doesn't exceed 100%)
+      progressPercentage = Math.min(100, Math.max(0, (weightProgress / totalWeightChange) * 100));
+      
+      // If we've reached or exceeded the goal
+      if ((isLosingWeight && currentWeight <= targetWeight) || 
+          (isGainingWeight && currentWeight >= targetWeight)) {
+        progressPercentage = 100;
+      }
+      
+    }
 
     return (
       <View style={styles.section}>

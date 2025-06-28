@@ -29,6 +29,13 @@ export default function ExerciseScreen() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showWorkoutTitleModal, setShowWorkoutTitleModal] = useState(false);
   const [workoutTitle, setWorkoutTitle] = useState('');
+  const [showSetNotesModal, setShowSetNotesModal] = useState<{exerciseIndex: number; setIndex: number} | null>(null);
+  const [showExerciseNotesModal, setShowExerciseNotesModal] = useState<number | null>(null);
+  const [showWorkoutNotesModal, setShowWorkoutNotesModal] = useState(false);
+  const [tempNotes, setTempNotes] = useState('');
+  const [viewingWorkout, setViewingWorkout] = useState<WorkoutSession | null>(null);
+  const [editingExerciseName, setEditingExerciseName] = useState<number | null>(null);
+  const [tempExerciseName, setTempExerciseName] = useState('');
 
   useEffect(() => {
     loadWorkouts();
@@ -110,26 +117,92 @@ export default function ExerciseScreen() {
     });
   };
 
-  const updateSet = (exerciseIndex: number, setIndex: number, field: 'reps' | 'weight' | 'rpe', value: string) => {
+  const updateSet = (exerciseIndex: number, setIndex: number, field: 'reps' | 'weight' | 'rpe' | 'notes', value: string) => {
     if (!currentWorkout) return;
 
     const updatedExercises = [...currentWorkout.exercises];
-    const numValue = parseFloat(value) || 0;
     
-    if (field === 'reps') {
-      updatedExercises[exerciseIndex].sets[setIndex].reps = Math.floor(numValue);
-    } else if (field === 'weight') {
-      // Convert weight from imperial to kg for storage
-      const weightInKg = parseWeight(value, 'imperial');
-      updatedExercises[exerciseIndex].sets[setIndex].weight = weightInKg;
-    } else if (field === 'rpe') {
-      updatedExercises[exerciseIndex].sets[setIndex].rpe = Math.min(10, Math.max(1, numValue));
+    if (field === 'notes') {
+      updatedExercises[exerciseIndex].sets[setIndex].notes = value;
+    } else {
+      const numValue = parseFloat(value) || 0;
+      
+      if (field === 'reps') {
+        updatedExercises[exerciseIndex].sets[setIndex].reps = Math.floor(numValue);
+      } else if (field === 'weight') {
+        // Convert weight from imperial to kg for storage
+        const weightInKg = parseWeight(value, 'imperial');
+        updatedExercises[exerciseIndex].sets[setIndex].weight = weightInKg;
+      } else if (field === 'rpe') {
+        updatedExercises[exerciseIndex].sets[setIndex].rpe = Math.min(10, Math.max(1, numValue));
+      }
     }
 
     setCurrentWorkout({
       ...currentWorkout,
       exercises: updatedExercises,
     });
+  };
+
+  const updateExerciseNotes = (exerciseIndex: number, notes: string) => {
+    if (!currentWorkout) return;
+
+    const updatedExercises = [...currentWorkout.exercises];
+    updatedExercises[exerciseIndex].notes = notes;
+
+    setCurrentWorkout({
+      ...currentWorkout,
+      exercises: updatedExercises,
+    });
+  };
+
+  const updateWorkoutNotes = (notes: string) => {
+    if (!currentWorkout) return;
+
+    setCurrentWorkout({
+      ...currentWorkout,
+      notes,
+    });
+  };
+
+  const openSetNotesModal = (exerciseIndex: number, setIndex: number) => {
+    const currentNotes = currentWorkout?.exercises[exerciseIndex]?.sets[setIndex]?.notes || '';
+    setTempNotes(currentNotes);
+    setShowSetNotesModal({exerciseIndex, setIndex});
+  };
+
+  const openExerciseNotesModal = (exerciseIndex: number) => {
+    const currentNotes = currentWorkout?.exercises[exerciseIndex]?.notes || '';
+    setTempNotes(currentNotes);
+    setShowExerciseNotesModal(exerciseIndex);
+  };
+
+  const openWorkoutNotesModal = () => {
+    const currentNotes = currentWorkout?.notes || '';
+    setTempNotes(currentNotes);
+    setShowWorkoutNotesModal(true);
+  };
+
+  const saveSetNotes = () => {
+    if (showSetNotesModal) {
+      updateSet(showSetNotesModal.exerciseIndex, showSetNotesModal.setIndex, 'notes', tempNotes);
+      setShowSetNotesModal(null);
+      setTempNotes('');
+    }
+  };
+
+  const saveExerciseNotes = () => {
+    if (showExerciseNotesModal !== null) {
+      updateExerciseNotes(showExerciseNotesModal, tempNotes);
+      setShowExerciseNotesModal(null);
+      setTempNotes('');
+    }
+  };
+
+  const saveWorkoutNotes = () => {
+    updateWorkoutNotes(tempNotes);
+    setShowWorkoutNotesModal(false);
+    setTempNotes('');
   };
 
   const finishWorkout = async () => {
@@ -183,6 +256,71 @@ export default function ExerciseScreen() {
     setEditingWorkout(null);
   };
 
+  const viewWorkoutDetails = (workout: WorkoutSession) => {
+    setViewingWorkout(workout);
+  };
+
+  const deleteExercise = (exerciseIndex: number) => {
+    if (!currentWorkout) return;
+
+    Alert.alert(
+      'Delete Exercise',
+      'Are you sure you want to delete this exercise and all its sets?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            const updatedExercises = currentWorkout.exercises.filter((_, index) => index !== exerciseIndex);
+            setCurrentWorkout({
+              ...currentWorkout,
+              exercises: updatedExercises,
+            });
+          },
+        },
+      ]
+    );
+  };
+
+  const deleteSet = (exerciseIndex: number, setIndex: number) => {
+    if (!currentWorkout) return;
+
+    const updatedExercises = [...currentWorkout.exercises];
+    updatedExercises[exerciseIndex].sets = updatedExercises[exerciseIndex].sets.filter((_, index) => index !== setIndex);
+
+    setCurrentWorkout({
+      ...currentWorkout,
+      exercises: updatedExercises,
+    });
+  };
+
+  const startEditingExerciseName = (exerciseIndex: number) => {
+    if (!currentWorkout) return;
+    setTempExerciseName(currentWorkout.exercises[exerciseIndex].exerciseId.replace(/_/g, ' '));
+    setEditingExerciseName(exerciseIndex);
+  };
+
+  const saveExerciseName = () => {
+    if (!currentWorkout || editingExerciseName === null) return;
+
+    const updatedExercises = [...currentWorkout.exercises];
+    updatedExercises[editingExerciseName].exerciseId = tempExerciseName.toLowerCase().replace(/\s+/g, '_');
+
+    setCurrentWorkout({
+      ...currentWorkout,
+      exercises: updatedExercises,
+    });
+
+    setEditingExerciseName(null);
+    setTempExerciseName('');
+  };
+
+  const cancelEditingExerciseName = () => {
+    setEditingExerciseName(null);
+    setTempExerciseName('');
+  };
+
   const renderCurrentWorkout = () => {
     if (!currentWorkout) return null;
 
@@ -207,37 +345,124 @@ export default function ExerciseScreen() {
             </TouchableOpacity>
           </View>
         </View>
+        
+        <View style={styles.workoutNotesSection}>
+          <TouchableOpacity
+            style={styles.workoutNotesButton}
+            onPress={openWorkoutNotesModal}
+          >
+            <Text style={styles.workoutNotesButtonText}>
+              {currentWorkout.notes ? '💬' : '💭'} Workout Notes
+            </Text>
+          </TouchableOpacity>
+          {currentWorkout.notes && (
+            <View style={styles.workoutNotesPreview}>
+              <Text style={styles.workoutNotesPreviewText}>{currentWorkout.notes}</Text>
+            </View>
+          )}
+        </View>
 
         {currentWorkout.exercises.map((exercise, exerciseIndex) => (
           <View key={exercise.id} style={styles.exerciseSection}>
-            <Text style={styles.exerciseName}>{exercise.exerciseId.replace(/_/g, ' ').toUpperCase()}</Text>
+            <View style={styles.exerciseHeader}>
+              {editingExerciseName === exerciseIndex ? (
+                <View style={styles.exerciseNameEdit}>
+                  <TextInput
+                    style={styles.exerciseNameInput}
+                    value={tempExerciseName}
+                    onChangeText={setTempExerciseName}
+                    autoFocus
+                    placeholder="Exercise name"
+                    placeholderTextColor="#999"
+                    onSubmitEditing={saveExerciseName}
+                    blurOnSubmit={false}
+                  />
+                  <TouchableOpacity style={styles.saveExerciseNameButton} onPress={saveExerciseName}>
+                    <Text style={styles.saveExerciseNameText}>✓</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.cancelExerciseNameButton} onPress={cancelEditingExerciseName}>
+                    <Text style={styles.cancelExerciseNameText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity onPress={() => startEditingExerciseName(exerciseIndex)}>
+                  <Text style={styles.exerciseName}>{exercise.exerciseId.replace(/_/g, ' ').toUpperCase()}</Text>
+                </TouchableOpacity>
+              )}
+              
+              <View style={styles.exerciseActions}>
+                <TouchableOpacity
+                  style={styles.notesButton}
+                  onPress={() => openExerciseNotesModal(exerciseIndex)}
+                >
+                  <Text style={styles.notesButtonText}>
+                    {exercise.notes ? '💬' : '💭'} Notes
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.deleteExerciseButton}
+                  onPress={() => deleteExercise(exerciseIndex)}
+                >
+                  <Text style={styles.deleteExerciseButtonText}>🗑️</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            {exercise.notes && (
+              <View style={styles.notesPreview}>
+                <Text style={styles.notesPreviewText}>{exercise.notes}</Text>
+              </View>
+            )}
             
             {exercise.sets.map((set, setIndex) => (
-              <View key={set.id} style={styles.setRow}>
-                <Text style={styles.setNumber}>{setIndex + 1}</Text>
-                <TextInput
-                  style={styles.setInput}
-                  placeholder="Weight (lbs)"
-                  value={set.weight > 0 ? getDisplayWeight(set.weight, 'imperial') : ''}
-                  onChangeText={(value) => updateSet(exerciseIndex, setIndex, 'weight', value)}
-                  keyboardType="decimal-pad"
-                />
-                <Text style={styles.setLabel}>lbs</Text>
-                <TextInput
-                  style={styles.setInput}
-                  placeholder="Reps"
-                  value={set.reps > 0 ? set.reps.toString() : ''}
-                  onChangeText={(value) => updateSet(exerciseIndex, setIndex, 'reps', value)}
-                  keyboardType="numeric"
-                />
-                <Text style={styles.setLabel}>reps</Text>
-                <TextInput
-                  style={[styles.setInput, styles.rpeInput]}
-                  placeholder="RPE"
-                  value={set.rpe ? set.rpe.toString() : ''}
-                  onChangeText={(value) => updateSet(exerciseIndex, setIndex, 'rpe', value)}
-                  keyboardType="numeric"
-                />
+              <View key={set.id}>
+                <View style={styles.setRow}>
+                  <Text style={styles.setNumber}>{setIndex + 1}</Text>
+                  <TextInput
+                    style={styles.setInput}
+                    placeholder="Weight (lbs)"
+                    value={set.weight > 0 ? getDisplayWeight(set.weight, 'imperial') : ''}
+                    onChangeText={(value) => updateSet(exerciseIndex, setIndex, 'weight', value)}
+                    keyboardType="decimal-pad"
+                  />
+                  <Text style={styles.setLabel}>lbs</Text>
+                  <TextInput
+                    style={styles.setInput}
+                    placeholder="Reps"
+                    value={set.reps > 0 ? set.reps.toString() : ''}
+                    onChangeText={(value) => updateSet(exerciseIndex, setIndex, 'reps', value)}
+                    keyboardType="numeric"
+                  />
+                  <Text style={styles.setLabel}>reps</Text>
+                  <TextInput
+                    style={[styles.setInput, styles.rpeInput]}
+                    placeholder="RPE"
+                    value={set.rpe ? set.rpe.toString() : ''}
+                    onChangeText={(value) => updateSet(exerciseIndex, setIndex, 'rpe', value)}
+                    keyboardType="numeric"
+                  />
+                  <TouchableOpacity
+                    style={styles.setNotesButton}
+                    onPress={() => openSetNotesModal(exerciseIndex, setIndex)}
+                  >
+                    <Text style={styles.setNotesButtonText}>
+                      {set.notes ? '💬' : '💭'}
+                    </Text>
+                  </TouchableOpacity>
+                  {exercise.sets.length > 1 && (
+                    <TouchableOpacity
+                      style={styles.deleteSetButton}
+                      onPress={() => deleteSet(exerciseIndex, setIndex)}
+                    >
+                      <Text style={styles.deleteSetButtonText}>🗑️</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {set.notes && (
+                  <View style={styles.setNotesPreview}>
+                    <Text style={styles.setNotesPreviewText}>{set.notes}</Text>
+                  </View>
+                )}
               </View>
             ))}
 
@@ -284,7 +509,6 @@ export default function ExerciseScreen() {
               day: 'numeric' 
             })}</Text>
           </TouchableOpacity>
-          <Text style={styles.subtitle}>Advanced Manual Entry</Text>
         </View>
 
         {currentWorkout ? (
@@ -301,13 +525,18 @@ export default function ExerciseScreen() {
           <Text style={styles.historyTitle}>Recent Workouts</Text>
           {workoutSessions.slice(-10).reverse().map((session) => (
             <View key={session.id} style={styles.historyItem}>
-              <View style={styles.historyItemLeft}>
+              <TouchableOpacity 
+                style={styles.historyItemLeft}
+                onPress={() => viewWorkoutDetails(session)}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.historyDate}>{session.date}</Text>
                 <Text style={styles.historyName}>{session.name}</Text>
                 <Text style={styles.historyExercises}>
                   {session.exercises.length} exercises
                 </Text>
-              </View>
+                <Text style={styles.tapToViewHint}>Tap to view details</Text>
+              </TouchableOpacity>
               <View style={styles.historyActions}>
                 <TouchableOpacity
                   style={styles.editButton}
@@ -425,6 +654,263 @@ export default function ExerciseScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Set Notes Modal */}
+      <Modal visible={!!showSetNotesModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <ScrollView 
+            contentContainerStyle={styles.notesModalScrollContainer}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={true}
+            keyboardDismissMode="interactive"
+            contentInsetAdjustmentBehavior="automatic"
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Set Notes</Text>
+              <Text style={styles.notesModalSubtitle}>
+                Add insights about this set (form, difficulty, etc.)
+              </Text>
+              <TextInput
+                style={styles.notesTextInput}
+                placeholder="e.g., Good form, felt heavy, perfect tempo..."
+                value={tempNotes}
+                onChangeText={setTempNotes}
+                multiline
+                numberOfLines={4}
+                autoFocus
+                placeholderTextColor="#999"
+              />
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalCancelButton]}
+                  onPress={() => {
+                    setShowSetNotesModal(null);
+                    setTempNotes('');
+                  }}
+                >
+                  <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.addButton]}
+                  onPress={saveSetNotes}
+                >
+                  <Text style={styles.addButtonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Exercise Notes Modal */}
+      <Modal visible={showExerciseNotesModal !== null} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <ScrollView 
+            contentContainerStyle={styles.notesModalScrollContainer}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={true}
+            keyboardDismissMode="interactive"
+            contentInsetAdjustmentBehavior="automatic"
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Exercise Notes</Text>
+              <Text style={styles.notesModalSubtitle}>
+                Add notes about this exercise (technique, progression, etc.)
+              </Text>
+              <TextInput
+                style={styles.notesTextInput}
+                placeholder="e.g., Focus on slow eccentric, increase weight next week..."
+                value={tempNotes}
+                onChangeText={setTempNotes}
+                multiline
+                numberOfLines={4}
+                autoFocus
+                placeholderTextColor="#999"
+              />
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalCancelButton]}
+                  onPress={() => {
+                    setShowExerciseNotesModal(null);
+                    setTempNotes('');
+                  }}
+                >
+                  <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.addButton]}
+                  onPress={saveExerciseNotes}
+                >
+                  <Text style={styles.addButtonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Workout Notes Modal */}
+      <Modal visible={showWorkoutNotesModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <ScrollView 
+            contentContainerStyle={styles.notesModalScrollContainer}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={true}
+            keyboardDismissMode="interactive"
+            contentInsetAdjustmentBehavior="automatic"
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Workout Notes</Text>
+              <Text style={styles.notesModalSubtitle}>
+                Add overall notes about this workout session
+              </Text>
+              <TextInput
+                style={styles.notesTextInput}
+                placeholder="e.g., Great energy today, felt strong, need more sleep..."
+                value={tempNotes}
+                onChangeText={setTempNotes}
+                multiline
+                numberOfLines={4}
+                autoFocus
+                placeholderTextColor="#999"
+              />
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalCancelButton]}
+                  onPress={() => {
+                    setShowWorkoutNotesModal(false);
+                    setTempNotes('');
+                  }}
+                >
+                  <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.addButton]}
+                  onPress={saveWorkoutNotes}
+                >
+                  <Text style={styles.addButtonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Workout Details View Modal */}
+      <Modal visible={!!viewingWorkout} transparent animationType="slide">
+        <SafeAreaView style={styles.workoutDetailsModalOverlay}>
+          <ScrollView 
+            contentContainerStyle={styles.workoutDetailsScrollContainer}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.workoutDetailsModalContent}>
+              <View style={styles.workoutDetailsHeader}>
+                <Text style={styles.modalTitle}>{viewingWorkout?.name}</Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setViewingWorkout(null)}
+                >
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.workoutDetailsInfo}>
+                <Text style={styles.workoutDetailsDate}>
+                  📅 {viewingWorkout ? new Date(viewingWorkout.date).toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  }) : ''}
+                </Text>
+                <Text style={styles.workoutDetailsExerciseCount}>
+                  💪 {viewingWorkout?.exercises.length} exercises
+                </Text>
+                {viewingWorkout?.duration && (
+                  <Text style={styles.workoutDetailsDuration}>
+                    ⏱️ {viewingWorkout.duration} minutes
+                  </Text>
+                )}
+              </View>
+
+              {viewingWorkout?.notes && (
+                <View style={styles.workoutDetailsNotes}>
+                  <Text style={styles.workoutDetailsNotesTitle}>📝 Workout Notes</Text>
+                  <Text style={styles.workoutDetailsNotesText}>{viewingWorkout.notes}</Text>
+                </View>
+              )}
+
+              <View style={styles.workoutDetailsExercises}>
+                <Text style={styles.workoutDetailsExercisesTitle}>Exercises</Text>
+                {viewingWorkout?.exercises.map((exercise, exerciseIndex) => (
+                  <View key={exercise.id} style={styles.workoutDetailsExerciseSection}>
+                    <Text style={styles.workoutDetailsExerciseName}>
+                      {exercise.exerciseId.replace(/_/g, ' ').toUpperCase()}
+                    </Text>
+                    
+                    {exercise.notes && (
+                      <View style={styles.workoutDetailsExerciseNotes}>
+                        <Text style={styles.workoutDetailsExerciseNotesText}>
+                          💭 {exercise.notes}
+                        </Text>
+                      </View>
+                    )}
+                    
+                    <View style={styles.workoutDetailsSetsHeader}>
+                      <Text style={styles.workoutDetailsSetsHeaderText}>Set</Text>
+                      <Text style={styles.workoutDetailsSetsHeaderText}>Weight</Text>
+                      <Text style={styles.workoutDetailsSetsHeaderText}>Reps</Text>
+                      <Text style={styles.workoutDetailsSetsHeaderText}>RPE</Text>
+                    </View>
+                    
+                    {exercise.sets.map((set, setIndex) => (
+                      <View key={set.id}>
+                        <View style={styles.workoutDetailsSetRow}>
+                          <Text style={styles.workoutDetailsSetNumber}>{setIndex + 1}</Text>
+                          <Text style={styles.workoutDetailsSetValue}>
+                            {set.weight > 0 ? `${getDisplayWeight(set.weight, 'imperial')} lbs` : '-'}
+                          </Text>
+                          <Text style={styles.workoutDetailsSetValue}>
+                            {set.reps > 0 ? set.reps : '-'}
+                          </Text>
+                          <Text style={styles.workoutDetailsSetValue}>
+                            {set.rpe ? set.rpe : '-'}
+                          </Text>
+                        </View>
+                        {set.notes && (
+                          <View style={styles.workoutDetailsSetNotes}>
+                            <Text style={styles.workoutDetailsSetNotesText}>
+                              💭 {set.notes}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                ))}
+              </View>
+              
+              <View style={styles.workoutDetailsActions}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.addButton]}
+                  onPress={() => {
+                    if (viewingWorkout) {
+                      setViewingWorkout(null);
+                      editWorkout(viewingWorkout);
+                    }
+                  }}
+                >
+                  <Text style={styles.addButtonText}>Edit Workout</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -487,6 +973,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
+    gap: 15,
   },
   workoutTitle: {
     fontSize: 20,
@@ -496,28 +983,37 @@ const styles = StyleSheet.create({
   },
   workoutActions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 6,
+    alignItems: 'center',
   },
   finishButton: {
     backgroundColor: colors.accent.green,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    minWidth: 60,
+    alignItems: 'center',
     ...colors.shadows.small,
   },
   finishButtonText: {
     color: colors.text.primary,
     fontWeight: '600',
+    fontSize: 13,
   },
   cancelButton: {
     backgroundColor: colors.surface.level3,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    minWidth: 60,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.secondary,
   },
   cancelButtonText: {
     color: colors.text.secondary,
     fontWeight: '600',
+    fontSize: 13,
   },
   exerciseSection: {
     marginBottom: 20,
@@ -784,5 +1280,347 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 5,
     color: '#ffffff',
+  },
+  exerciseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  exerciseActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  exerciseNameEdit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  exerciseNameInput: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+    backgroundColor: '#3c3c3c',
+    borderWidth: 1,
+    borderColor: '#6a6a6a',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginRight: 8,
+  },
+  saveExerciseNameButton: {
+    backgroundColor: '#28a745',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 4,
+    marginRight: 4,
+  },
+  saveExerciseNameText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  cancelExerciseNameButton: {
+    backgroundColor: '#dc3545',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 4,
+  },
+  cancelExerciseNameText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  deleteExerciseButton: {
+    backgroundColor: '#dc3545',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 4,
+  },
+  deleteExerciseButtonText: {
+    fontSize: 14,
+  },
+  deleteSetButton: {
+    backgroundColor: '#dc3545',
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+    marginLeft: 4,
+  },
+  deleteSetButtonText: {
+    fontSize: 12,
+  },
+  notesButton: {
+    backgroundColor: '#4a4a4a',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#6a6a6a',
+  },
+  notesButtonText: {
+    color: '#c5c5c5',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  setNotesButton: {
+    backgroundColor: '#4a4a4a',
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: '#6a6a6a',
+  },
+  setNotesButtonText: {
+    fontSize: 16,
+  },
+  notesPreview: {
+    backgroundColor: '#3c3c3c',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#a82828',
+  },
+  notesPreviewText: {
+    color: '#e0e0e0',
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  setNotesPreview: {
+    backgroundColor: '#3c3c3c',
+    padding: 6,
+    borderRadius: 4,
+    marginLeft: 35,
+    marginBottom: 6,
+    borderLeftWidth: 2,
+    borderLeftColor: '#6a6a6a',
+  },
+  setNotesPreviewText: {
+    color: '#c5c5c5',
+    fontSize: 11,
+    fontStyle: 'italic',
+  },
+  workoutNotesSection: {
+    marginBottom: 15,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#6a6a6a',
+  },
+  workoutNotesButton: {
+    backgroundColor: '#4a4a4a',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#6a6a6a',
+  },
+  workoutNotesButtonText: {
+    color: '#c5c5c5',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  workoutNotesPreview: {
+    backgroundColor: '#3c3c3c',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#a82828',
+  },
+  workoutNotesPreviewText: {
+    color: '#e0e0e0',
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
+  notesTextInput: {
+    borderWidth: 1,
+    borderColor: '#6a6a6a',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 20,
+    fontSize: 16,
+    backgroundColor: '#4a4a4a',
+    color: '#ffffff',
+    textAlignVertical: 'top',
+    minHeight: 100,
+  },
+  notesModalSubtitle: {
+    fontSize: 14,
+    color: '#c5c5c5',
+    marginBottom: 15,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  notesModalScrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingBottom: 150, // Extra bottom padding for keyboard
+    paddingHorizontal: 10,
+  },
+  tapToViewHint: {
+    fontSize: 11,
+    color: '#a82828',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  workoutDetailsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  workoutDetailsScrollContainer: {
+    flexGrow: 1,
+    paddingVertical: 20,
+    paddingHorizontal: 15,
+  },
+  workoutDetailsModalContent: {
+    backgroundColor: '#4a4a4a',
+    borderRadius: 12,
+    padding: 20,
+    minHeight: '80%',
+  },
+  workoutDetailsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#6a6a6a',
+    paddingBottom: 15,
+  },
+  workoutDetailsInfo: {
+    backgroundColor: '#3c3c3c',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  workoutDetailsDate: {
+    fontSize: 16,
+    color: '#ffffff',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  workoutDetailsExerciseCount: {
+    fontSize: 14,
+    color: '#c5c5c5',
+    marginBottom: 4,
+  },
+  workoutDetailsDuration: {
+    fontSize: 14,
+    color: '#c5c5c5',
+  },
+  workoutDetailsNotes: {
+    backgroundColor: '#3c3c3c',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#a82828',
+  },
+  workoutDetailsNotesTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 8,
+  },
+  workoutDetailsNotesText: {
+    fontSize: 14,
+    color: '#e0e0e0',
+    lineHeight: 20,
+  },
+  workoutDetailsExercises: {
+    marginBottom: 20,
+  },
+  workoutDetailsExercisesTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 15,
+  },
+  workoutDetailsExerciseSection: {
+    backgroundColor: '#3c3c3c',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 15,
+  },
+  workoutDetailsExerciseName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#a82828',
+    marginBottom: 10,
+  },
+  workoutDetailsExerciseNotes: {
+    backgroundColor: '#2c2c2c',
+    padding: 8,
+    borderRadius: 6,
+    marginBottom: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#6a6a6a',
+  },
+  workoutDetailsExerciseNotesText: {
+    fontSize: 12,
+    color: '#c5c5c5',
+    fontStyle: 'italic',
+  },
+  workoutDetailsSetsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#6a6a6a',
+    marginBottom: 8,
+  },
+  workoutDetailsSetsHeaderText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#c5c5c5',
+    flex: 1,
+    textAlign: 'center',
+  },
+  workoutDetailsSetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#555555',
+  },
+  workoutDetailsSetNumber: {
+    fontSize: 14,
+    color: '#ffffff',
+    flex: 1,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  workoutDetailsSetValue: {
+    fontSize: 14,
+    color: '#e0e0e0',
+    flex: 1,
+    textAlign: 'center',
+  },
+  workoutDetailsSetNotes: {
+    backgroundColor: '#2c2c2c',
+    padding: 6,
+    borderRadius: 4,
+    marginLeft: 10,
+    marginBottom: 6,
+    borderLeftWidth: 2,
+    borderLeftColor: '#555555',
+  },
+  workoutDetailsSetNotesText: {
+    fontSize: 11,
+    color: '#c5c5c5',
+    fontStyle: 'italic',
+  },
+  workoutDetailsActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 20,
   },
 });

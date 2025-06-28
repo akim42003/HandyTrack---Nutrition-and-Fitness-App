@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { UserProfile } from '../../src/types';
 import { getUserProfile, saveUserProfile, clearAllData } from '../../src/utils/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -32,6 +33,13 @@ export default function ProfileScreen() {
   useEffect(() => {
     loadProfile();
   }, []);
+
+  // Refresh profile data when screen is focused (e.g., coming back from Progress tab)
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [])
+  );
 
   const loadProfile = async () => {
     try {
@@ -140,13 +148,24 @@ export default function ProfileScreen() {
   const handleClearData = () => {
     console.log('Clear Data button clicked');
     
-    // Use browser confirm for web compatibility
-    const confirmed = confirm('Clear All Data\n\nThis will permanently delete all your data including workouts, food entries, and profile. This cannot be undone.\n\nAre you sure you want to continue?');
-    
-    if (confirmed) {
-      console.log('User confirmed delete all');
-      performClearData();
-    }
+    Alert.alert(
+      'Clear All Data',
+      'This will permanently delete all your data including workouts, food entries, and profile. This cannot be undone.\n\nAre you sure you want to continue?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Clear All Data',
+          style: 'destructive',
+          onPress: () => {
+            console.log('User confirmed delete all');
+            performClearData();
+          },
+        },
+      ]
+    );
   };
 
   const performClearData = async () => {
@@ -155,11 +174,11 @@ export default function ProfileScreen() {
       await clearAllData();
       console.log('clearAllData completed');
       
-      alert('Profile Reset Complete\n\nAll data has been cleared. Please close and reopen the app to start fresh.');
+      Alert.alert('Profile Reset Complete', 'All data has been cleared. Please close and reopen the app to start fresh.');
       console.log('User acknowledged reset complete');
     } catch (error) {
       console.error('Error clearing data:', error);
-      alert('Error: Failed to clear data');
+      Alert.alert('Error', 'Failed to clear data');
     }
   };
 

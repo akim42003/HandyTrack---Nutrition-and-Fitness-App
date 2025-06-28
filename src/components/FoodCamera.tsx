@@ -83,7 +83,8 @@ export const FoodCamera: React.FC<FoodCameraProps> = ({
         enableShutterSound: false,
       });
       
-      const imageUri = `file://${photo.path}`;
+      // photo.path might already include file:// prefix on some platforms
+      const imageUri = photo.path.startsWith('file://') ? photo.path : `file://${photo.path}`;
       setCapturedImage(imageUri);
       
       // Process the image for food recognition
@@ -199,7 +200,10 @@ export const FoodCamera: React.FC<FoodCameraProps> = ({
                 <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                   <Text style={styles.closeButtonText}>✕</Text>
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Capture Food</Text>
+                <View style={styles.headerTitleContainer}>
+                  <Text style={styles.headerTitle}>Capture Food</Text>
+                  <Text style={styles.betaLabel}>BETA</Text>
+                </View>
                 <View style={{ width: 40 }} />
               </View>
 
@@ -281,26 +285,16 @@ export const FoodCamera: React.FC<FoodCameraProps> = ({
                   </Text>
                   
                   <View style={styles.nutritionEstimate}>
-                    <Text style={styles.nutritionTitle}>Estimated Nutrition:</Text>
-                    <Text style={styles.nutritionText}>
-                      Calories: {recognitionResult.estimatedCalories} cal
+                    <Text style={styles.nutritionTitle}>⚠️ Development Notice</Text>
+                    <Text style={styles.disclaimerText}>
+                      Nutritional estimation is currently in development. 
                     </Text>
-                    <Text style={styles.nutritionText}>
-                      Weight: {recognitionResult.estimatedWeight}g
+                    <Text style={styles.disclaimerText}>
+                      Food recognition may identify items, but nutritional values are not yet available.
                     </Text>
-                    {recognitionResult.nutrition && (
-                      <>
-                        <Text style={styles.nutritionText}>
-                          Protein: {recognitionResult.nutrition.protein}g
-                        </Text>
-                        <Text style={styles.nutritionText}>
-                          Carbs: {recognitionResult.nutrition.carbs}g
-                        </Text>
-                        <Text style={styles.nutritionText}>
-                          Fat: {recognitionResult.nutrition.fat}g
-                        </Text>
-                      </>
-                    )}
+                    <Text style={styles.disclaimerText}>
+                      Please use manual entry for accurate nutrition tracking.
+                    </Text>
                   </View>
 
                   <View style={styles.resultActions}>
@@ -365,10 +359,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
+  headerTitleContainer: {
+    alignItems: 'center',
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#fff',
+  },
+  betaLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#a82828',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 2,
   },
   closeButton: {
     backgroundColor: '#a82828',
@@ -497,6 +504,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#c5c5c5',
     marginBottom: 5,
+  },
+  disclaimerText: {
+    fontSize: 13,
+    color: '#ffa500',
+    marginBottom: 8,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   resultActions: {
     flexDirection: 'row',

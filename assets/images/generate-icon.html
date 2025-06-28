@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>BioCal Icon Generator</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        .icon-container {
+            display: inline-block;
+            margin: 20px;
+            text-align: center;
+        }
+        .icon {
+            border-radius: 20%;
+            background: linear-gradient(135deg, #c84545 0%, #b73e3e 25%, #363b43 70%, #2a2d33 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        .icon::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.1) 100%);
+            border-radius: inherit;
+        }
+        .emoji {
+            font-size: 0.6em;
+            z-index: 1;
+            position: relative;
+        }
+        .icon-1024 { width: 1024px; height: 1024px; font-size: 1024px; }
+        .icon-512 { width: 512px; height: 512px; font-size: 512px; }
+        .icon-256 { width: 256px; height: 256px; font-size: 256px; }
+        .icon-128 { width: 128px; height: 128px; font-size: 128px; }
+        .icon-64 { width: 64px; height: 64px; font-size: 64px; }
+        h3 { margin: 10px 0 5px 0; }
+        p { margin: 0; color: #666; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>BioCal App Icon - Thumbs Up Design</h1>
+    <p>Right-click on any icon and "Save Image As" to save as PNG</p>
+    
+    <div class="icon-container">
+        <div class="icon icon-1024">
+            <span class="emoji">👍</span>
+        </div>
+        <h3>1024x1024</h3>
+        <p>Main icon (icon.png)</p>
+    </div>
+    
+    <div class="icon-container">
+        <div class="icon icon-512">
+            <span class="emoji">👍</span>
+        </div>
+        <h3>512x512</h3>
+        <p>Large icon</p>
+    </div>
+    
+    <div class="icon-container">
+        <div class="icon icon-256">
+            <span class="emoji">👍</span>
+        </div>
+        <h3>256x256</h3>
+        <p>Medium icon</p>
+    </div>
+    
+    <div class="icon-container">
+        <div class="icon icon-128">
+            <span class="emoji">👍</span>
+        </div>
+        <h3>128x128</h3>
+        <p>Small icon</p>
+    </div>
+    
+    <div class="icon-container">
+        <div class="icon icon-64">
+            <span class="emoji">👍</span>
+        </div>
+        <h3>64x64</h3>
+        <p>Tiny icon</p>
+    </div>
+    
+    <br><br>
+    <h2>Instructions:</h2>
+    <ol>
+        <li>Open this HTML file in a web browser</li>
+        <li>Right-click on the 1024x1024 icon and save as "icon.png"</li>
+        <li>Right-click on the 1024x1024 icon and save as "adaptive-icon.png"</li>
+        <li>Right-click on the 512x512 icon and save as "splash-icon.png"</li>
+        <li>Right-click on the 128x128 icon and save as "favicon.png"</li>
+        <li>Replace the files in the assets/images folder</li>
+    </ol>
+    
+    <h3>App Color Scheme Used:</h3>
+    <div style="display: flex; gap: 10px; margin: 10px 0;">
+        <div style="width: 40px; height: 40px; background: #c84545; border-radius: 4px;" title="Primary Red"></div>
+        <div style="width: 40px; height: 40px; background: #b73e3e; border-radius: 4px;" title="Dark Red"></div>
+        <div style="width: 40px; height: 40px; background: #363b43; border-radius: 4px;" title="Dark Blue Grey"></div>
+        <div style="width: 40px; height: 40px; background: #2a2d33; border-radius: 4px;" title="Charcoal"></div>
+    </div>
+    <p><small>Colors: Primary Red (#c84545) → Dark Red (#b73e3e) → Dark Blue Grey (#363b43) → Charcoal (#2a2d33)</small></p>
+</body>
+</html>

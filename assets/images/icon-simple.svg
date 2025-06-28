@@ -1,0 +1,55 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background with gradient effect -->
+  <defs>
+    <radialGradient id="bgGradient" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" style="stop-color:#363b43;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2a2d33;stop-opacity:1" />
+    </radialGradient>
+    <linearGradient id="redGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#c84545;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#b73e3e;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="180" fill="url(#bgGradient)"/>
+  
+  <!-- Main Icon - Simplified Dumbbell + Food -->
+  <g transform="translate(512, 400)">
+    <!-- Dumbbell -->
+    <!-- Bar -->
+    <rect x="-120" y="-16" width="240" height="32" rx="16" fill="url(#redGradient)"/>
+    
+    <!-- Left weight -->
+    <rect x="-160" y="-48" width="48" height="96" rx="8" fill="url(#redGradient)"/>
+    <rect x="-176" y="-32" width="16" height="64" rx="4" fill="#b73e3e"/>
+    
+    <!-- Right weight -->
+    <rect x="112" y="-48" width="48" height="96" rx="8" fill="url(#redGradient)"/>
+    <rect x="160" y="-32" width="16" height="64" rx="4" fill="#b73e3e"/>
+    
+    <!-- Center grip -->
+    <rect x="-40" y="-24" width="80" height="48" rx="24" fill="#414852"/>
+  </g>
+  
+  <!-- Food Icon -->
+  <g transform="translate(512, 650)">
+    <!-- Plate -->
+    <circle cx="0" cy="0" r="80" fill="#414852"/>
+    <circle cx="0" cy="0" r="68" fill="#363b43"/>
+    
+    <!-- Food representation -->
+    <!-- Protein -->
+    <ellipse cx="-28" cy="-12" rx="20" ry="14" fill="#c84545"/>
+    
+    <!-- Vegetables -->
+    <circle cx="24" cy="-20" r="14" fill="#4a7c59"/>
+    <circle cx="36" cy="8" r="10" fill="#4a7c59"/>
+    
+    <!-- Carbs -->
+    <rect x="-16" y="16" width="32" height="20" rx="10" fill="#d4822a"/>
+  </g>
+  
+  <!-- Simple brand mark -->
+  <text x="512" y="880" font-family="Arial, sans-serif" font-size="72" font-weight="bold" text-anchor="middle" fill="#f5f5f5">BC</text>
+</svg>

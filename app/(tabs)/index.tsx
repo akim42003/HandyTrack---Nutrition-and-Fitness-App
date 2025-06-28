@@ -14,7 +14,7 @@ import {
 import { FoodEntry, UserProfile } from '../../src/types';
 import { getFoodEntries, getUserProfile, saveFoodEntry, updateFoodEntry, deleteFoodEntry } from '../../src/utils/storage';
 import { getMeasurementEquivalents, convertBiometricToAmount } from '../../src/utils/biometricCalculator';
-import { searchFoods, getFoodById, getPopularFoods, isUSDAApiReady, getApiStatus, FoodItem } from '../../src/data/foodDatabase';
+import { searchFoods, getPopularFoods, getApiStatus, FoodItem } from '../../src/data/foodDatabase';
 import { formatVolume } from '../../src/utils/unitConversions';
 import { CalendarPicker } from '../../src/components/CalendarPicker';
 import { FoodCamera } from '../../src/components/FoodCamera';
@@ -44,6 +44,15 @@ export default function FoodScreen() {
   const [isSearching, setIsSearching] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showFoodCamera, setShowFoodCamera] = useState(false);
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customFoodData, setCustomFoodData] = useState({
+    name: '',
+    calories: '',
+    servings: '',
+    protein: '',
+    carbs: '',
+    fat: '',
+  });
 
   useEffect(() => {
     loadData();
@@ -80,13 +89,17 @@ export default function FoodScreen() {
   };
 
   const calculateEntryProtein = (entry: FoodEntry) => {
-    // Calculate protein based on stored food data or fallback
-    const food = getFoodById(entry.foodId);
-    if (food && food.protein) {
-      return Math.round((entry.amount / 100) * food.protein * 10) / 10; // Round to 1 decimal
+    // Use stored calorie data to estimate protein (rough calculation)
+    // This avoids async calls and uses data already stored with the entry
+    if (entry.caloriesPerGram) {
+      // Rough estimate: assume 20-25% of calories come from protein
+      // 1g protein = 4 calories, so protein grams = (total calories * 0.22) / 4
+      const totalCalories = entry.amount * entry.caloriesPerGram;
+      const estimatedProtein = (totalCalories * 0.22) / 4; // 22% protein calories
+      return Math.round(estimatedProtein * 10) / 10; // Round to 1 decimal
     }
-    // Fallback for entries without food data (rough estimate)
-    return Math.round(entry.amount * 0.2 * 10) / 10; // Assume 20% protein content
+    // Fallback for entries without calorie data (rough estimate)
+    return Math.round(entry.amount * 0.2 * 10) / 10; // Assume 20% protein content by weight
   };
 
   const loadData = async () => {
@@ -129,6 +142,15 @@ export default function FoodScreen() {
     setCalculatedCalories(0);
     setCalculatedNutrition({ protein: 0, carbs: 0, fat: 0, fiber: 0 });
     setEditingEntry(null); // Reset editing state
+    setShowCustomInput(false); // Reset custom input state
+    setCustomFoodData({
+      name: '',
+      calories: '',
+      servings: '',
+      protein: '',
+      carbs: '',
+      fat: '',
+    });
     setShowAddFood(true);
   };
 
@@ -264,12 +286,73 @@ export default function FoodScreen() {
     }
   };
 
-  const editFoodEntry = (entry: FoodEntry) => {
-    const food = getFoodById(entry.foodId);
-    if (!food) {
-      Alert.alert('Error', 'Food not found in database');
+  const saveCustomFood = async () => {
+    if (!userProfile) {
+      Alert.alert('Error', 'User profile not found');
       return;
     }
+
+    try {
+      const totalCalories = (parseFloat(customFoodData.calories) || 0) * (parseFloat(customFoodData.servings) || 1);
+      const totalProtein = (parseFloat(customFoodData.protein) || 0) * (parseFloat(customFoodData.servings) || 1);
+      const totalCarbs = (parseFloat(customFoodData.carbs) || 0) * (parseFloat(customFoodData.servings) || 1);
+      const totalFat = (parseFloat(customFoodData.fat) || 0) * (parseFloat(customFoodData.servings) || 1);
+
+      // Create a custom food entry with estimated weight (100g per serving as default)
+      const estimatedWeight = 100 * (parseFloat(customFoodData.servings) || 1);
+      const caloriesPerGram = totalCalories / estimatedWeight;
+
+      const foodEntry: FoodEntry = {
+        id: Date.now().toString(),
+        foodId: `custom_${Date.now()}`,
+        amount: estimatedWeight,
+        unit: 'g',
+        date: selectedDate,
+        meal: selectedMeal,
+        caloriesPerGram: caloriesPerGram,
+        foodName: customFoodData.name,
+      };
+
+      await saveFoodEntry(foodEntry);
+      Alert.alert('Success', 'Custom food added successfully!');
+      
+      // Reload data
+      const entries = await getFoodEntries(selectedDate);
+      setFoodEntries(entries);
+      
+      setShowAddFood(false);
+      setShowCustomInput(false);
+      setCustomFoodData({
+        name: '',
+        calories: '',
+        servings: '',
+        protein: '',
+        carbs: '',
+        fat: '',
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to save custom food entry');
+    }
+  };
+
+  const editFoodEntry = (entry: FoodEntry) => {
+    // Use stored food data instead of async lookup
+    if (!entry.foodName || !entry.caloriesPerGram) {
+      Alert.alert('Error', 'Food data not available for editing. Please add this food again.');
+      return;
+    }
+
+    // Create food object from stored entry data
+    const food = {
+      id: entry.foodId,
+      name: entry.foodName,
+      caloriesPerGram: entry.caloriesPerGram,
+      category: 'Unknown',
+      protein: 0, // Will be estimated
+      carbs: 0,
+      fat: 0, 
+      fiber: 0
+    };
 
     setEditingEntry(entry);
     setSelectedMeal(entry.meal);
@@ -387,7 +470,7 @@ export default function FoodScreen() {
                   <View key={entry.id} style={styles.foodEntry}>
                     <View style={styles.foodEntryLeft}>
                       <Text style={styles.foodName}>
-                        {getFoodById(entry.foodId)?.name || entry.foodId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        {entry.foodName || entry.foodId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       </Text>
                       <Text style={styles.foodDetails}>
                         {Math.round(entry.amount)}g ({entry.unit}) • {calculateEntryCalories(entry)} cal • {Math.round(calculateEntryProtein(entry) * 10) / 10}g protein
@@ -434,7 +517,15 @@ export default function FoodScreen() {
 
       <Modal visible={showAddFood} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <ScrollView 
+            contentContainerStyle={showCustomInput ? styles.modalScrollContainerCustom : styles.modalScrollContainer}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={true}
+            keyboardDismissMode="interactive"
+            contentInsetAdjustmentBehavior="automatic"
+          >
+            <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
               {editingEntry ? 'Edit Food Entry' : `Add Food to ${selectedMeal.charAt(0).toUpperCase() + selectedMeal.slice(1)}`}
             </Text>
@@ -446,10 +537,10 @@ export default function FoodScreen() {
                 <View style={styles.inputMethodButtons}>
                   <TouchableOpacity 
                     style={styles.inputMethodButton}
-                    onPress={() => {/* Current search flow - no changes needed */}}
+                    onPress={() => setShowCustomInput(true)}
                   >
-                    <Text style={styles.inputMethodIcon}>🔍</Text>
-                    <Text style={styles.inputMethodText}>Search Database</Text>
+                    <Text style={styles.inputMethodIcon}>✏️</Text>
+                    <Text style={styles.inputMethodText}>Custom Food Input</Text>
                   </TouchableOpacity>
                   
                   <TouchableOpacity 
@@ -461,6 +552,7 @@ export default function FoodScreen() {
                   >
                     <Text style={styles.inputMethodIcon}>📷</Text>
                     <Text style={styles.inputMethodText}>Camera Recognition</Text>
+                    <Text style={styles.inputMethodBeta}>BETA</Text>
                   </TouchableOpacity>
                 </View>
                 
@@ -470,8 +562,143 @@ export default function FoodScreen() {
               </View>
             )}
             
-            {/* API Status Indicator */}
-            {!apiStatus.configured && (
+            {/* Custom Food Input Form */}
+            {showCustomInput && !selectedFood && (
+              <View style={styles.customInputSection}>
+                <Text style={styles.customInputTitle}>Manual Food Entry</Text>
+                
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Food Name *</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="e.g., Restaurant Pasta, Protein Bar"
+                    value={customFoodData.name}
+                    onChangeText={(text) => setCustomFoodData(prev => ({...prev, name: text}))}
+                    placeholderTextColor="#999"
+                  />
+                </View>
+                
+                <View style={styles.inputRow}>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Calories per serving *</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="350"
+                      value={customFoodData.calories}
+                      onChangeText={(text) => setCustomFoodData(prev => ({...prev, calories: text}))}
+                      keyboardType="numeric"
+                      placeholderTextColor="#999"
+                    />
+                  </View>
+                  
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Number of servings *</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="1"
+                      value={customFoodData.servings}
+                      onChangeText={(text) => setCustomFoodData(prev => ({...prev, servings: text}))}
+                      keyboardType="decimal-pad"
+                      placeholderTextColor="#999"
+                    />
+                  </View>
+                </View>
+                
+                <View style={styles.inputRow}>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Protein (g)</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="0"
+                      value={customFoodData.protein}
+                      onChangeText={(text) => setCustomFoodData(prev => ({...prev, protein: text}))}
+                      keyboardType="decimal-pad"
+                      placeholderTextColor="#999"
+                    />
+                  </View>
+                  
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Carbs (g)</Text>
+                    <TextInput
+                      style={styles.modalInput}
+                      placeholder="0"
+                      value={customFoodData.carbs}
+                      onChangeText={(text) => setCustomFoodData(prev => ({...prev, carbs: text}))}
+                      keyboardType="decimal-pad"
+                      placeholderTextColor="#999"
+                    />
+                  </View>
+                </View>
+                
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Fat (g)</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="0"
+                    value={customFoodData.fat}
+                    onChangeText={(text) => setCustomFoodData(prev => ({...prev, fat: text}))}
+                    keyboardType="decimal-pad"
+                    placeholderTextColor="#999"
+                  />
+                </View>
+                
+                {customFoodData.name && customFoodData.calories && customFoodData.servings && (
+                  <View style={styles.nutritionInfo}>
+                    <Text style={styles.nutritionTitle}>Total Nutrition</Text>
+                    <View style={styles.nutritionRow}>
+                      <Text style={styles.nutritionItem}>
+                        🔥 {Math.round((parseFloat(customFoodData.calories) || 0) * (parseFloat(customFoodData.servings) || 1))} cal
+                      </Text>
+                      <Text style={styles.nutritionItem}>
+                        🥩 {Math.round(((parseFloat(customFoodData.protein) || 0) * (parseFloat(customFoodData.servings) || 1)) * 10) / 10}g protein
+                      </Text>
+                    </View>
+                    <View style={styles.nutritionRow}>
+                      <Text style={styles.nutritionItem}>
+                        🍞 {Math.round(((parseFloat(customFoodData.carbs) || 0) * (parseFloat(customFoodData.servings) || 1)) * 10) / 10}g carbs
+                      </Text>
+                      <Text style={styles.nutritionItem}>
+                        🥑 {Math.round(((parseFloat(customFoodData.fat) || 0) * (parseFloat(customFoodData.servings) || 1)) * 10) / 10}g fat
+                      </Text>
+                    </View>
+                  </View>
+                )}
+                
+                <View style={styles.customInputButtons}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => setShowCustomInput(false)}
+                  >
+                    <Text style={styles.cancelButtonText}>Back to Search</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.modalButton, 
+                      styles.saveButton,
+                      (!customFoodData.name || !customFoodData.calories || !customFoodData.servings) && styles.disabledButton
+                    ]}
+                    onPress={() => {
+                      if (!customFoodData.name || !customFoodData.calories || !customFoodData.servings) {
+                        Alert.alert('Error', 'Please fill in food name, calories per serving, and number of servings');
+                        return;
+                      }
+                      saveCustomFood();
+                    }}
+                    disabled={!customFoodData.name || !customFoodData.calories || !customFoodData.servings}
+                  >
+                    <Text style={[
+                      styles.saveButtonText,
+                      (!customFoodData.name || !customFoodData.calories || !customFoodData.servings) && styles.disabledText
+                    ]}>
+                      Add Custom Food
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+            
+            {/* API Status Indicator - only show when not using custom input */}
+            {!showCustomInput && !apiStatus.configured && (
               <View style={styles.apiWarning}>
                 <Text style={styles.apiWarningText}>⚠️ USDA API not configured</Text>
                 <Text style={styles.apiWarningSubtext}>
@@ -480,21 +707,24 @@ export default function FoodScreen() {
               </View>
             )}
             
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Search Food</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder={apiStatus.configured ? "Search 400,000+ foods (e.g., chicken breast)" : "Please configure USDA API key first"}
-                value={searchQuery}
-                onChangeText={handleSearchFood}
-                editable={apiStatus.configured}
-              />
-              {isSearching && (
-                <Text style={styles.searchingText}>Searching USDA database...</Text>
-              )}
-            </View>
+            {/* Search Section - hide when using custom input */}
+            {!showCustomInput && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Search Food</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder={apiStatus.configured ? "Search 400,000+ foods (e.g., chicken breast)" : "Please configure USDA API key first"}
+                  value={searchQuery}
+                  onChangeText={handleSearchFood}
+                  editable={apiStatus.configured}
+                />
+                {isSearching && (
+                  <Text style={styles.searchingText}>Searching USDA database...</Text>
+                )}
+              </View>
+            )}
 
-            {searchResults.length > 0 && (
+            {!showCustomInput && searchResults.length > 0 && (
               <ScrollView style={styles.searchResults} nestedScrollEnabled>
                 {searchResults.slice(0, 8).map((food) => (
                   <TouchableOpacity
@@ -509,7 +739,7 @@ export default function FoodScreen() {
               </ScrollView>
             )}
 
-            {selectedFood && (
+            {!showCustomInput && selectedFood && (
               <>
                 <View style={styles.selectedFoodInfo}>
                   <Text style={styles.selectedFoodName}>{selectedFood.name}</Text>
@@ -585,31 +815,34 @@ export default function FoodScreen() {
               </>
             )}
 
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowAddFood(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.modalButton, 
-                  styles.saveButton,
-                  (!selectedFood || !amount) && styles.disabledButton
-                ]}
-                onPress={saveFood}
-                disabled={!selectedFood || !amount}
-              >
-                <Text style={[
-                  styles.saveButtonText,
-                  (!selectedFood || !amount) && styles.disabledText
-                ]}>
-                  {editingEntry ? 'Update Food' : 'Add Food'}
-                </Text>
-              </TouchableOpacity>
+            {!showCustomInput && (
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => setShowAddFood(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalButton, 
+                    styles.saveButton,
+                    (!selectedFood || !amount) && styles.disabledButton
+                  ]}
+                  onPress={saveFood}
+                  disabled={!selectedFood || !amount}
+                >
+                  <Text style={[
+                    styles.saveButtonText,
+                    (!selectedFood || !amount) && styles.disabledText
+                  ]}>
+                    {editingEntry ? 'Update Food' : 'Add Food'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
             </View>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -839,13 +1072,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  modalScrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingBottom: 150, // Extra bottom padding for keyboard during custom input
+  },
+  modalScrollContainerCustom: {
+    flexGrow: 1,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingTop: 50,
+    paddingBottom: 200, // Extra bottom padding for keyboard during custom input
+    paddingHorizontal: 10,
+  },
   modalContent: {
     backgroundColor: colors.surface.level2,
     margin: 20,
     padding: 20,
     borderRadius: 12,
     width: '90%',
-    maxHeight: '80%',
+    maxWidth: 400,
+    minHeight: 300,
     ...colors.shadows.large,
   },
   modalTitle: {
@@ -874,6 +1123,9 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     padding: 10,
     fontSize: 16,
+    backgroundColor: colors.surface.level1,
+    color: colors.text.primary,
+    minHeight: 40,
   },
   unitSelector: {
     flexDirection: 'row',
@@ -1123,6 +1375,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
+  inputMethodBeta: {
+    color: '#a82828',
+    fontSize: 10,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 2,
+  },
   inputMethodDivider: {
     alignItems: 'center',
     marginVertical: 10,
@@ -1131,5 +1390,26 @@ const styles = StyleSheet.create({
     color: '#c5c5c5',
     fontSize: 12,
     fontStyle: 'italic',
+  },
+  customInputSection: {
+    backgroundColor: '#4a4a4a',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#6a6a6a',
+  },
+  customInputTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 15,
+    textAlign: 'center',
+    color: '#a82828',
+  },
+  customInputButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 15,
+    gap: 15,
   },
 });

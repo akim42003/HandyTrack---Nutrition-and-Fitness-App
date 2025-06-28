@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  SafeAreaView,
 } from 'react-native';
 import { UserProfile } from '../types';
 import { saveUserProfile } from '../utils/storage';
@@ -130,6 +131,7 @@ export const ProfileSetup: React.FC<Props> = ({ onComplete }) => {
         name: formData.name,
         height: heightInCm,
         weight: weightInKg,
+        startingWeight: weightInKg, // Set starting weight for progress tracking
         age,
         gender: formData.gender,
         activityLevel: formData.activityLevel,
@@ -158,8 +160,16 @@ export const ProfileSetup: React.FC<Props> = ({ onComplete }) => {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Set Up Your Profile</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView 
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets={true}
+        keyboardDismissMode="interactive"
+      >
+        <Text style={styles.title}>Set Up Your Profile</Text>
       
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Name *</Text>
@@ -168,6 +178,7 @@ export const ProfileSetup: React.FC<Props> = ({ onComplete }) => {
           value={formData.name}
           onChangeText={(text) => setFormData({ ...formData, name: text })}
           placeholder="Enter your name"
+          placeholderTextColor="#a0a0a0"
         />
       </View>
 
@@ -180,6 +191,7 @@ export const ProfileSetup: React.FC<Props> = ({ onComplete }) => {
           value={formData.height}
           onChangeText={(text) => setFormData({ ...formData, height: text })}
           placeholder="5'10&quot; or 70"
+          placeholderTextColor="#a0a0a0"
           keyboardType="numeric"
         />
       </View>
@@ -193,6 +205,7 @@ export const ProfileSetup: React.FC<Props> = ({ onComplete }) => {
           value={formData.weight}
           onChangeText={(text) => setFormData({ ...formData, weight: text })}
           placeholder="150"
+          placeholderTextColor="#a0a0a0"
           keyboardType="numeric"
         />
       </View>
@@ -204,6 +217,7 @@ export const ProfileSetup: React.FC<Props> = ({ onComplete }) => {
           value={formData.age}
           onChangeText={(text) => setFormData({ ...formData, age: text })}
           placeholder="25"
+          placeholderTextColor="#a0a0a0"
           keyboardType="numeric"
         />
       </View>
@@ -241,6 +255,7 @@ export const ProfileSetup: React.FC<Props> = ({ onComplete }) => {
           value={formData.targetWeight}
           onChangeText={(text) => setFormData({ ...formData, targetWeight: text })}
           placeholder="Optional - defaults to current weight"
+          placeholderTextColor="#a0a0a0"
           keyboardType="numeric"
         />
       </View>
@@ -254,6 +269,7 @@ export const ProfileSetup: React.FC<Props> = ({ onComplete }) => {
           value={formData.weeklyWeightChange}
           onChangeText={(text) => setFormData({ ...formData, weeklyWeightChange: text })}
           placeholder="1 for gain, -1 for loss"
+          placeholderTextColor="#a0a0a0"
           keyboardType="numbers-and-punctuation"
         />
       </View>
@@ -267,25 +283,34 @@ export const ProfileSetup: React.FC<Props> = ({ onComplete }) => {
           value={formData.proteinGoal}
           onChangeText={(text) => setFormData({ ...formData, proteinGoal: text })}
           placeholder="Optional - will calculate based on activity level"
+          placeholderTextColor="#a0a0a0"
           keyboardType="numeric"
         />
         <Text style={styles.helpText}>
-          Recommended: Sedentary (0.8g/kg), Active (1.6g/kg), Very Active (2.2g/kg)
+          Recommended: Sedentary (0.36g/lb), Active (0.73g/lb), Very Active (1.0g/lb)
         </Text>
       </View>
 
       <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
         <Text style={styles.submitText}>Create Profile</Text>
       </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#3c3c3c',
+  },
   container: {
     flex: 1,
+  },
+  scrollContent: {
     padding: 20,
-    backgroundColor: '#3c3c3c',
+    paddingTop: 40, // Extra top padding for Dynamic Island/notch
+    paddingBottom: 100, // Extra bottom padding for keyboard
   },
   title: {
     fontSize: 24,
