@@ -85,8 +85,13 @@ export default function ProfileScreen() {
       console.log('Converting height from display:', displayValues.height);
       const heightInCm = parseHeight(displayValues.height, 'imperial');
       console.log('Parsed height in cm:', heightInCm);
+      console.log('Original profile height:', editedProfile?.height, 'cm');
       
       // Validate height - don't allow unrealistic values
+      if (heightInCm <= 0) {
+        Alert.alert('Error', 'Please enter a valid height');
+        return;
+      }
       if (heightInCm < 120 || heightInCm > 250) {
         Alert.alert('Error', 'Please enter a valid height between 4\'0" and 8\'2"');
         return;
@@ -139,6 +144,17 @@ export default function ProfileScreen() {
       await saveUserProfile(updatedProfile);
       setUserProfile(updatedProfile);
       setIsEditing(false);
+      
+      // Update display values to match the saved profile
+      setDisplayValues({
+        height: formatHeight(updatedProfile.height, 'imperial'),
+        weight: getDisplayWeight(updatedProfile.weight, 'imperial'),
+        targetWeight: getDisplayWeight(updatedProfile.goals.targetWeight, 'imperial'),
+        weeklyWeightChange: Math.abs(updatedProfile.goals.weeklyWeightChange) === 0 ? '0' : 
+          (Math.round(kgToLbs(updatedProfile.goals.weeklyWeightChange) * 10) / 10).toString(),
+        proteinGoal: updatedProfile.goals.dailyProtein.toString(),
+      });
+      
       Alert.alert('Success', 'Profile updated successfully!');
     } catch (error) {
       Alert.alert('Error', 'Failed to save profile');
@@ -234,7 +250,18 @@ export default function ProfileScreen() {
             style={styles.editButton}
             onPress={() => {
               if (isEditing) {
+                // Reset to original values when canceling
                 setEditedProfile(userProfile);
+                if (userProfile) {
+                  setDisplayValues({
+                    height: formatHeight(userProfile.height, 'imperial'),
+                    weight: getDisplayWeight(userProfile.weight, 'imperial'),
+                    targetWeight: getDisplayWeight(userProfile.goals.targetWeight, 'imperial'),
+                    weeklyWeightChange: Math.abs(userProfile.goals.weeklyWeightChange) === 0 ? '0' : 
+                      (Math.round(kgToLbs(userProfile.goals.weeklyWeightChange) * 10) / 10).toString(),
+                    proteinGoal: userProfile.goals.dailyProtein.toString(),
+                  });
+                }
               }
               setIsEditing(!isEditing);
             }}

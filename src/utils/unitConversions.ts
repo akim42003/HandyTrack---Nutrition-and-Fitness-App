@@ -93,22 +93,47 @@ export const parseWeight = (input: string, unitSystem: 'metric' | 'imperial'): n
 export const parseHeight = (input: string, unitSystem: 'metric' | 'imperial'): number => {
   if (unitSystem === 'imperial') {
     // Handle formats like "5'10", "5'10\"", "5 10", "70" (inches)
-    const cleanInput = input.replace(/['"]/g, '').trim();
+    const trimmedInput = input.trim();
     
-    if (cleanInput.includes(' ') || cleanInput.includes("'")) {
-      // Format: "5 10" or "5'10"
-      const parts = cleanInput.split(/[\s']+/);
+    if (!trimmedInput) return 0; // Handle empty input
+    
+    // Check if it contains feet/inch markers BEFORE removing them
+    if (trimmedInput.includes("'") || trimmedInput.includes('"')) {
+      // Format: "5'10"" or "5'10" - extract feet and inches
+      const feetMatch = trimmedInput.match(/(\d+)'/);
+      const inchesMatch = trimmedInput.match(/'(\d+)/);
+      
+      const feet = feetMatch ? parseInt(feetMatch[1]) : 0;
+      const inches = inchesMatch ? parseInt(inchesMatch[1]) : 0;
+      
+      console.log('Parsing height with feet/inches:', { input: trimmedInput, feet, inches });
+      return feetInchesToCm(feet, inches);
+    } else if (trimmedInput.includes(' ')) {
+      // Format: "5 10" - space separated
+      const parts = trimmedInput.split(/\s+/);
       const feet = parseInt(parts[0]) || 0;
       const inches = parseInt(parts[1]) || 0;
+      
+      console.log('Parsing height with space:', { input: trimmedInput, feet, inches });
       return feetInchesToCm(feet, inches);
     } else {
-      // Assume total inches
-      const totalInches = parseFloat(cleanInput);
+      // Only treat as total inches if it's a larger number (60+ inches)
+      const totalInches = parseFloat(trimmedInput);
+      if (isNaN(totalInches)) return 0;
+      
+      // If it's a small number (like 5 or 6), it's probably malformed feet input
+      if (totalInches < 48) {
+        console.warn('Height input seems too small for inches, treating as feet:', totalInches);
+        return feetInchesToCm(totalInches, 0); // Treat as feet with 0 inches
+      }
+      
+      console.log('Parsing height as total inches:', { input: trimmedInput, totalInches });
       return inchesToCm(totalInches);
     }
   }
   
-  return parseFloat(input) || 0;
+  const value = parseFloat(input);
+  return isNaN(value) ? 0 : value;
 };
 
 // Helper for weight change (can be negative)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   TextInput,
   Platform,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { FoodEntry, UserProfile } from '../../src/types';
 import { getFoodEntries, getUserProfile, saveFoodEntry, updateFoodEntry, deleteFoodEntry } from '../../src/utils/storage';
 import { getMeasurementEquivalents, convertBiometricToAmount } from '../../src/utils/biometricCalculator';
@@ -58,6 +59,13 @@ export default function FoodScreen() {
     loadData();
     checkApiStatus();
   }, [selectedDate]);
+
+  // Refresh profile data when screen is focused to get updated biometric measurements
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   const checkApiStatus = () => {
     const status = getApiStatus();
@@ -398,15 +406,13 @@ export default function FoodScreen() {
   const renderMeasurementGuide = () => {
     if (!userProfile) return null;
     
-    const equivalents = getMeasurementEquivalents(userProfile);
-    
     return (
       <View style={styles.measurementGuide}>
         <Text style={styles.guideTitle}>Your Biometric Measurements</Text>
         <View style={styles.guideRow}>
-          <Text style={styles.guideItem}>🤛 Fist: ~{formatVolume(equivalents.fist.volume, 'imperial')}</Text>
-          <Text style={styles.guideItem}>👍 Thumb: ~{formatVolume(equivalents.thumb.volume, 'imperial')}</Text>
-          <Text style={styles.guideItem}>👌 Pinky: ~{formatVolume(equivalents.pinky.volume, 'imperial')}</Text>
+          <Text style={styles.guideItem}>🤛 Fist: ~{formatVolume(userProfile.biometricMeasurements.fistVolume, 'imperial')}</Text>
+          <Text style={styles.guideItem}>👍 Thumb: ~{formatVolume(userProfile.biometricMeasurements.thumbVolume, 'imperial')}</Text>
+          <Text style={styles.guideItem}>👌 Pinky: ~{formatVolume(userProfile.biometricMeasurements.pinkyVolume, 'imperial')}</Text>
         </View>
       </View>
     );

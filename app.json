@@ -4,7 +4,7 @@
     "slug": "BioCal",
     "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/new-icon.png",
     "scheme": "biocal",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -14,11 +14,12 @@
         "NSCameraUsageDescription": "This app uses the camera to recognize food items and estimate calories for nutrition tracking.",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "bundleIdentifier": "com.akim42003.Visi-Cal"
+      "bundleIdentifier": "com.akim42003.BioCal",
+      "appleTeamId": "5JG9GHX4G6"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/new-icon.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [
@@ -40,7 +41,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/new-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
@@ -57,10 +58,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "d0d944e0-5b9b-459a-b26c-07aef13a0070"
-      }
+      "router": {}
     }
   }
 }
