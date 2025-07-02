@@ -17,6 +17,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { calculateBiometricMeasurements, getMeasurementEquivalents } from '../../src/utils/biometricCalculator';
 import { formatWeight, formatHeight, formatWeightChange, parseWeight, parseHeight, parseWeightChange, getDisplayWeight, kgToLbs, formatVolume } from '../../src/utils/unitConversions';
 import { colors } from '../../src/styles/colors';
+import { Linking } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ProfileScreen() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -419,6 +421,100 @@ export default function ProfileScreen() {
 
         {renderMeasurementEquivalents()}
 
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Calculation Sources</Text>
+          <Text style={styles.sourcesIntro}>
+            The biometric calculations in this app are based on peer-reviewed scientific research:
+          </Text>
+
+          <TouchableOpacity 
+            style={styles.sourceItem}
+            onPress={() => Linking.openURL('https://pubmed.ncbi.nlm.nih.gov/2305711/')}
+          >
+            <Ionicons name="link-outline" size={16} color={colors.accent.primary} style={styles.sourceIcon} />
+            <View style={styles.sourceContent}>
+              <Text style={styles.sourceTitle}>Daily Calorie Calculations</Text>
+              <Text style={styles.sourceDescription}>
+                Based on the Mifflin-St Jeor equation, a validated method for calculating basal metabolic rate (BMR)
+              </Text>
+              <Text style={styles.sourceCitation}>
+                Mifflin MD, et al. Am J Clin Nutr. 1990 Feb;51(2):241-7
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.sourceItem}
+            onPress={() => Linking.openURL('https://pubmed.ncbi.nlm.nih.gov/15642117/')}
+          >
+            <Ionicons name="link-outline" size={16} color={colors.accent.primary} style={styles.sourceIcon} />
+            <View style={styles.sourceContent}>
+              <Text style={styles.sourceTitle}>Hand Size Measurements</Text>
+              <Text style={styles.sourceDescription}>
+                Hand anthropometry varies with sex, body weight and body mass index
+              </Text>
+              <Text style={styles.sourceCitation}>
+                Nag A, et al. J Hand Ther. 2003 Oct-Dec;16(4):337-44
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.sourceItem}
+            onPress={() => Linking.openURL('https://pubmed.ncbi.nlm.nih.gov/17598418/')}
+          >
+            <Ionicons name="link-outline" size={16} color={colors.accent.primary} style={styles.sourceIcon} />
+            <View style={styles.sourceContent}>
+              <Text style={styles.sourceTitle}>Portion Size Estimation</Text>
+              <Text style={styles.sourceDescription}>
+                Visual cues including hand measurements help improve portion size estimation accuracy
+              </Text>
+              <Text style={styles.sourceCitation}>
+                Byrd-Bredbenner C, Schwartz J. J Am Diet Assoc. 2004 Sep;104(9):1430-6
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.sourceItem}
+            onPress={() => Linking.openURL('https://pubmed.ncbi.nlm.nih.gov/15883556/')}
+          >
+            <Ionicons name="link-outline" size={16} color={colors.accent.primary} style={styles.sourceIcon} />
+            <View style={styles.sourceContent}>
+              <Text style={styles.sourceTitle}>Activity Level Multipliers</Text>
+              <Text style={styles.sourceDescription}>
+                Physical activity level (PAL) values for calculating total energy expenditure
+              </Text>
+              <Text style={styles.sourceCitation}>
+                FAO/WHO/UNU Expert Consultation. Public Health Nutr. 2005 Oct;8(7A):1133-52
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.sourceItem}
+            onPress={() => Linking.openURL('https://pubmed.ncbi.nlm.nih.gov/19691365/')}
+          >
+            <Ionicons name="link-outline" size={16} color={colors.accent.primary} style={styles.sourceIcon} />
+            <View style={styles.sourceContent}>
+              <Text style={styles.sourceTitle}>BMI and Body Composition</Text>
+              <Text style={styles.sourceDescription}>
+                Anthropometric equations for estimating body composition are population-specific
+              </Text>
+              <Text style={styles.sourceCitation}>
+                Deurenberg P, Deurenberg-Yap M. Eur J Clin Nutr. 2002 Nov;56(11):1143-8
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.disclaimerBox}>
+            <Ionicons name="information-circle-outline" size={20} color={colors.text.secondary} />
+            <Text style={styles.disclaimerText}>
+              These calculations provide estimates based on population averages. Individual variations exist. Consult a healthcare provider for personalized nutrition advice.
+            </Text>
+          </View>
+        </View>
+
         {isEditing && (
           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
             <Text style={styles.saveButtonText}>Save Changes</Text>
@@ -560,5 +656,59 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  sourcesIntro: {
+    fontSize: 14,
+    color: '#c5c5c5',
+    marginBottom: 15,
+    lineHeight: 20,
+  },
+  sourceItem: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    padding: 15,
+    backgroundColor: '#3a3a3a',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#5a5a5a',
+  },
+  sourceIcon: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  sourceContent: {
+    flex: 1,
+  },
+  sourceTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  sourceDescription: {
+    fontSize: 13,
+    color: '#c5c5c5',
+    marginBottom: 6,
+    lineHeight: 18,
+  },
+  sourceCitation: {
+    fontSize: 12,
+    color: '#8a8a8a',
+    fontStyle: 'italic',
+  },
+  disclaimerBox: {
+    flexDirection: 'row',
+    backgroundColor: '#3a3a3a',
+    padding: 15,
+    borderRadius: 8,
+    marginTop: 10,
+    alignItems: 'flex-start',
+  },
+  disclaimerText: {
+    fontSize: 12,
+    color: '#a5a5a5',
+    marginLeft: 10,
+    flex: 1,
+    lineHeight: 18,
   },
 });
