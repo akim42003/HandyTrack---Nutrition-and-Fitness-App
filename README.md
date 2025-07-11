@@ -53,7 +53,7 @@ Personalizes measurements based on user data:
 - Adjusts for height, weight, and gender
 - Provides measurement equivalents
 
-#### Food Recognition Service
+#### Food Recognition Service (Beta)
 AI-powered food identification:
 - TensorFlow Lite model integration
 - Image preprocessing and analysis
@@ -85,7 +85,7 @@ AI-powered food identification:
 - Unit system preferences
 - Biometric measurement configuration
 
-## 📊 Features Deep Dive
+## 📊 Working Features Deep Dive
 
 ### Visual Portion System
 The app's unique selling point is its personalized biometric measurement system:
@@ -94,13 +94,6 @@ The app's unique selling point is its personalized biometric measurement system:
 2. **Accuracy**: Uses anthropometric studies for realistic volume calculations
 3. **Simplicity**: No measuring cups needed - use your body as the reference
 4. **Consistency**: Same measurements used across all food entries
-
-### Food Recognition AI
-Beta feature using TensorFlow Lite:
-- Trained on common food items
-- Provides calorie estimates based on visual analysis
-- Continuously improving accuracy
-- Fallback to manual entry if confidence is low
 
 ### Nutrition Database
 Integration with USDA FoodData Central:
