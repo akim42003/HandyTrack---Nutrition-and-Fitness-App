@@ -5,7 +5,7 @@ A modern, intelligent calorie tracking app that combines traditional nutrition l
 ## ✨ Features
 
 ### 🥗 Smart Food Tracking
-- **USDA Database Integration**: Access to 400,000+ foods with accurate nutritional data
+- **USDA Database Integration**: Access to 40,000+ foods with accurate nutritional data
 - **Camera Recognition** (Beta): Take photos of your food for automatic identification and calorie estimation
 - **Custom Food Entry**: Manually add foods with detailed nutritional information
 - **Visual Portion Sizing**: Use your own body measurements (fist, thumb, pinky) for intuitive portion control
