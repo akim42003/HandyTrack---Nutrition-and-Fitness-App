@@ -1,7 +1,7 @@
 # Camera Food Recognition System
 
 ## Overview
-The Visi-Cal app includes an AI-powered food recognition system that uses the device camera to identify foods and automatically estimate their nutritional content.
+The HandyFit app includes an AI-powered food recognition system that uses the device camera to identify foods and automatically estimate their nutritional content.
 
 ## Features
 - Real-time food recognition using TensorFlow Lite

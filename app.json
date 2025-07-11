@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "BioCal",
-    "slug": "BioCal",
+    "name": "HandyFit",
+    "slug": "HandyFit",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/new-icon.png",
-    "scheme": "biocal",
-    "userInterfaceStyle": "automatic",
+    "scheme": "handyfit",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
@@ -14,13 +14,13 @@
         "NSCameraUsageDescription": "This app uses the camera to recognize food items and estimate calories for nutrition tracking.",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "bundleIdentifier": "com.akim42003.BioCal",
+      "bundleIdentifier": "com.akim42003.HandyFit",
       "appleTeamId": "5JG9GHX4G6"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/new-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#1a1a1a"
       },
       "permissions": [
         "CAMERA",
@@ -29,7 +29,7 @@
         "android.permission.CAMERA"
       ],
       "edgeToEdgeEnabled": true,
-      "package": "com.akim42003.VisiCal"
+      "package": "com.akim42003.HandyFit"
     },
     "web": {
       "bundler": "metro",
@@ -42,9 +42,9 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/new-icon.png",
-          "imageWidth": 200,
+          "imageWidth": 120,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#1a1a1a"
         }
       ],
       [
@@ -52,7 +52,9 @@
         {
           "cameraPermissionText": "This app uses the camera to recognize food items and estimate calories for nutrition tracking."
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

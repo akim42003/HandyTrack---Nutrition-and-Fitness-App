@@ -4,13 +4,14 @@
  */
 
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+// Removed useColorScheme - forcing dark mode permanently
 
 export function useThemeColor(
   props: { light?: string; dark?: string },
   colorName: keyof typeof Colors.light & keyof typeof Colors.dark
 ) {
-  const theme = useColorScheme() ?? 'light';
+  // Force dark mode permanently
+  const theme = 'dark';
   const colorFromProps = props[theme];
 
   if (colorFromProps) {

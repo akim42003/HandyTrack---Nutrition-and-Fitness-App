@@ -2,24 +2,33 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
   Alert,
-  Modal,
-  TextInput,
-  Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { FoodEntry, UserProfile } from '../../src/types';
 import { getFoodEntries, getUserProfile, saveFoodEntry, updateFoodEntry, deleteFoodEntry } from '../../src/utils/storage';
-import { getMeasurementEquivalents, convertBiometricToAmount } from '../../src/utils/biometricCalculator';
+import { convertBiometricToAmount } from '../../src/utils/biometricCalculator';
 import { searchFoods, getPopularFoods, getApiStatus, FoodItem } from '../../src/data/foodDatabase';
 import { formatVolume } from '../../src/utils/unitConversions';
 import { CalendarPicker } from '../../src/components/CalendarPicker';
 import { FoodCamera } from '../../src/components/FoodCamera';
-import { colors, getElevationStyle } from '../../src/styles/colors';
+import { VisualPortions, calculateTotalInUnit } from '../../src/components/VisualPortionSelector';
+import { AddFoodModal } from '../../src/components/modals/AddFoodModal';
+import { DeleteConfirmModal } from '../../src/components/modals/DeleteConfirmModal';
+import { MealSection } from '../../src/components/MealSection';
+import { 
+  calculateEntryCalories, 
+  calculateEntryProtein, 
+  calculateMealCalories, 
+  calculateMealProtein,
+  calculateTotalCalories,
+  calculateTotalProtein,
+  calculateNutrition
+} from '../../src/services/nutritionCalculator';
+import { foodScreenStyles as styles } from '../../src/styles/foodScreenStyles';
 
 export default function FoodScreen() {
   const [foodEntries, setFoodEntries] = useState<FoodEntry[]>([]);
@@ -46,6 +55,13 @@ export default function FoodScreen() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showFoodCamera, setShowFoodCamera] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
+  const [useVisualPortions, setUseVisualPortions] = useState(false);
+  const [servingUnit, setServingUnit] = useState('cup');
+  const [visualPortions, setVisualPortions] = useState<VisualPortions>({
+    fists: 0,
+    thumbs: 0,
+    pinkies: 0,
+  });
   const [customFoodData, setCustomFoodData] = useState({
     name: '',
     calories: '',
@@ -54,6 +70,7 @@ export default function FoodScreen() {
     carbs: '',
     fat: '',
   });
+
 
   useEffect(() => {
     loadData();
@@ -86,29 +103,6 @@ export default function FoodScreen() {
     }
   };
 
-  const calculateEntryCalories = (entry: FoodEntry) => {
-    // Since we can't use async getFoodById here, we'll calculate based on stored calories
-    // Food entries now store calories per gram when created
-    if (entry.caloriesPerGram) {
-      return Math.round(entry.amount * entry.caloriesPerGram);
-    }
-    // Fallback for old entries without stored calorie data
-    return Math.round(entry.amount * 4);
-  };
-
-  const calculateEntryProtein = (entry: FoodEntry) => {
-    // Use stored calorie data to estimate protein (rough calculation)
-    // This avoids async calls and uses data already stored with the entry
-    if (entry.caloriesPerGram) {
-      // Rough estimate: assume 20-25% of calories come from protein
-      // 1g protein = 4 calories, so protein grams = (total calories * 0.22) / 4
-      const totalCalories = entry.amount * entry.caloriesPerGram;
-      const estimatedProtein = (totalCalories * 0.22) / 4; // 22% protein calories
-      return Math.round(estimatedProtein * 10) / 10; // Round to 1 decimal
-    }
-    // Fallback for entries without calorie data (rough estimate)
-    return Math.round(entry.amount * 0.2 * 10) / 10; // Assume 20% protein content by weight
-  };
 
   const loadData = async () => {
     try {
@@ -125,20 +119,8 @@ export default function FoodScreen() {
     return foodEntries.filter(entry => entry.meal === meal);
   };
 
-  const calculateMealCalories = (meal: string) => {
-    return getMealEntries(meal).reduce((total, entry) => {
-      return total + calculateEntryCalories(entry);
-    }, 0);
-  };
-
-  const calculateMealProtein = (meal: string) => {
-    return getMealEntries(meal).reduce((total, entry) => {
-      return total + calculateEntryProtein(entry);
-    }, 0);
-  };
-
-  const totalCalories = foodEntries.reduce((total, entry) => total + calculateEntryCalories(entry), 0);
-  const totalProtein = foodEntries.reduce((total, entry) => total + calculateEntryProtein(entry), 0);
+  const totalCalories = calculateTotalCalories(foodEntries);
+  const totalProtein = calculateTotalProtein(foodEntries);
 
   const openAddFood = (meal: 'breakfast' | 'lunch' | 'dinner' | 'snack') => {
     setSelectedMeal(meal);
@@ -151,6 +133,13 @@ export default function FoodScreen() {
     setCalculatedNutrition({ protein: 0, carbs: 0, fat: 0, fiber: 0 });
     setEditingEntry(null); // Reset editing state
     setShowCustomInput(false); // Reset custom input state
+    setUseVisualPortions(false); // Reset visual portions mode
+    setServingUnit('cup');
+    setVisualPortions({
+      fists: 0,
+      thumbs: 0,
+      pinkies: 0,
+    });
     setCustomFoodData({
       name: '',
       calories: '',
@@ -191,45 +180,28 @@ export default function FoodScreen() {
     setSelectedFood(food);
     setSearchQuery(food.name);
     setSearchResults([]);
-    calculateNutrition(food, amount, unit);
+    updateNutrition(food, amount, unit);
   };
 
-  const calculateNutrition = (food: FoodItem | null, amountStr: string, selectedUnit: string) => {
-    if (!food || !amountStr || !userProfile) {
-      setCalculatedCalories(0);
-      setCalculatedNutrition({ protein: 0, carbs: 0, fat: 0, fiber: 0 });
-      return;
-    }
-
-    let amountInGrams = parseFloat(amountStr);
-    
-    // Convert biometric measurements to grams
-    if (['fist', 'thumb', 'pinky'].includes(selectedUnit)) {
-      const biometricMeasurement = {
-        type: selectedUnit as 'fist' | 'thumb' | 'pinky',
-        multiplier: 1,
-      };
-      amountInGrams = convertBiometricToAmount(biometricMeasurement, amountInGrams, userProfile);
-    }
-
-    const calories = Math.round(amountInGrams * food.caloriesPerGram);
-    const protein = Math.round((amountInGrams / 100) * food.protein * 10) / 10;
-    const carbs = Math.round((amountInGrams / 100) * food.carbs * 10) / 10;
-    const fat = Math.round((amountInGrams / 100) * food.fat * 10) / 10;
-    const fiber = Math.round((amountInGrams / 100) * food.fiber * 10) / 10;
-
-    setCalculatedCalories(calories);
-    setCalculatedNutrition({ protein, carbs, fat, fiber });
+  const updateNutrition = (food: FoodItem | null, amountStr: string, selectedUnit: string) => {
+    const nutrition = calculateNutrition(food, amountStr, selectedUnit, userProfile);
+    setCalculatedCalories(nutrition.calories);
+    setCalculatedNutrition({
+      protein: nutrition.protein,
+      carbs: nutrition.carbs,
+      fat: nutrition.fat,
+      fiber: nutrition.fiber,
+    });
   };
 
   const handleAmountChange = (value: string) => {
     setAmount(value);
-    calculateNutrition(selectedFood, value, unit);
+    updateNutrition(selectedFood, value, unit);
   };
 
   const handleUnitChange = (newUnit: 'g' | 'ml' | 'fist' | 'thumb' | 'pinky') => {
     setUnit(newUnit);
-    calculateNutrition(selectedFood, amount, newUnit);
+    updateNutrition(selectedFood, amount, newUnit);
   };
 
   const saveFood = async () => {
@@ -301,10 +273,14 @@ export default function FoodScreen() {
     }
 
     try {
-      const totalCalories = (parseFloat(customFoodData.calories) || 0) * (parseFloat(customFoodData.servings) || 1);
-      const totalProtein = (parseFloat(customFoodData.protein) || 0) * (parseFloat(customFoodData.servings) || 1);
-      const totalCarbs = (parseFloat(customFoodData.carbs) || 0) * (parseFloat(customFoodData.servings) || 1);
-      const totalFat = (parseFloat(customFoodData.fat) || 0) * (parseFloat(customFoodData.servings) || 1);
+      const servingMultiplier = useVisualPortions 
+        ? calculateTotalInUnit(visualPortions, servingUnit, userProfile?.biometricMeasurements || { fistVolume: 250, thumbVolume: 15, pinkyVolume: 5 })
+        : (parseFloat(customFoodData.servings) || 1);
+        
+      const totalCalories = (parseFloat(customFoodData.calories) || 0) * servingMultiplier;
+      const totalProtein = (parseFloat(customFoodData.protein) || 0) * servingMultiplier;
+      const totalCarbs = (parseFloat(customFoodData.carbs) || 0) * servingMultiplier;
+      const totalFat = (parseFloat(customFoodData.fat) || 0) * servingMultiplier;
 
       // Create a custom food entry with estimated weight (100g per serving as default)
       const estimatedWeight = 100 * (parseFloat(customFoodData.servings) || 1);
@@ -330,6 +306,13 @@ export default function FoodScreen() {
       
       setShowAddFood(false);
       setShowCustomInput(false);
+      setUseVisualPortions(false);
+      setServingUnit('cup');
+      setVisualPortions({
+        fists: 0,
+        thumbs: 0,
+        pinkies: 0,
+      });
       setCustomFoodData({
         name: '',
         calories: '',
@@ -359,7 +342,8 @@ export default function FoodScreen() {
       protein: 0, // Will be estimated
       carbs: 0,
       fat: 0, 
-      fiber: 0
+      fiber: 0,
+      searchTerms: []
     };
 
     setEditingEntry(entry);
@@ -382,7 +366,7 @@ export default function FoodScreen() {
     setUnit(displayUnit);
     setShowAddFood(true);
     
-    calculateNutrition(food, displayAmount.toString(), displayUnit);
+    updateNutrition(food, displayAmount.toString(), displayUnit);
   };
 
   const confirmDeleteEntry = (entryId: string) => {
@@ -454,59 +438,18 @@ export default function FoodScreen() {
 
         <View style={styles.mealsContainer}>
           {['breakfast', 'lunch', 'dinner', 'snack'].map((meal) => (
-            <View key={meal} style={styles.mealSection}>
-              <View style={styles.mealHeader}>
-                <Text style={styles.mealTitle}>
-                  {meal.charAt(0).toUpperCase() + meal.slice(1)}
-                </Text>
-                <View style={styles.mealNutrition}>
-                  <Text style={styles.mealCalories}>
-                    {Math.round(calculateMealCalories(meal))} cal
-                  </Text>
-                  <Text style={styles.mealProtein}>
-                    {Math.round(calculateMealProtein(meal) * 10) / 10}g protein
-                  </Text>
-                </View>
-              </View>
-              
-              {getMealEntries(meal).length === 0 ? (
-                <Text style={styles.noEntries}>No entries yet</Text>
-              ) : (
-                getMealEntries(meal).map((entry) => (
-                  <View key={entry.id} style={styles.foodEntry}>
-                    <View style={styles.foodEntryLeft}>
-                      <Text style={styles.foodName}>
-                        {entry.foodName || entry.foodId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </Text>
-                      <Text style={styles.foodDetails}>
-                        {Math.round(entry.amount)}g ({entry.unit}) • {calculateEntryCalories(entry)} cal • {Math.round(calculateEntryProtein(entry) * 10) / 10}g protein
-                      </Text>
-                    </View>
-                    <View style={styles.foodEntryActions}>
-                      <TouchableOpacity
-                        style={styles.editButton}
-                        onPress={() => editFoodEntry(entry)}
-                      >
-                        <Text style={styles.editButtonText}>Edit</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.deleteButton}
-                        onPress={() => confirmDeleteEntry(entry.id)}
-                      >
-                        <Text style={styles.deleteButtonText}>Delete</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))
-              )}
-              
-              <TouchableOpacity 
-                style={styles.addButton}
-                onPress={() => openAddFood(meal as 'breakfast' | 'lunch' | 'dinner' | 'snack')}
-              >
-                <Text style={styles.addButtonText}>+ Add Food</Text>
-              </TouchableOpacity>
-            </View>
+            <MealSection
+              key={meal}
+              meal={meal as 'breakfast' | 'lunch' | 'dinner' | 'snack'}
+              entries={getMealEntries(meal)}
+              mealCalories={calculateMealCalories(foodEntries, meal)}
+              mealProtein={calculateMealProtein(foodEntries, meal)}
+              onAddFood={openAddFood}
+              onEditEntry={editFoodEntry}
+              onDeleteEntry={confirmDeleteEntry}
+              calculateEntryCalories={calculateEntryCalories}
+              calculateEntryProtein={calculateEntryProtein}
+            />
           ))}
         </View>
       </ScrollView>
@@ -521,361 +464,45 @@ export default function FoodScreen() {
         onClose={() => setShowCalendar(false)}
       />
 
-      <Modal visible={showAddFood} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <ScrollView 
-            contentContainerStyle={showCustomInput ? styles.modalScrollContainerCustom : styles.modalScrollContainer}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets={true}
-            keyboardDismissMode="interactive"
-            contentInsetAdjustmentBehavior="automatic"
-          >
-            <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              {editingEntry ? 'Edit Food Entry' : `Add Food to ${selectedMeal.charAt(0).toUpperCase() + selectedMeal.slice(1)}`}
-            </Text>
-            
-            {/* Add Food Input Method Selection */}
-            {!editingEntry && !selectedFood && (
-              <View style={styles.inputMethodSection}>
-                <Text style={styles.inputMethodTitle}>How would you like to add food?</Text>
-                <View style={styles.inputMethodButtons}>
-                  <TouchableOpacity 
-                    style={styles.inputMethodButton}
-                    onPress={() => setShowCustomInput(true)}
-                  >
-                    <Text style={styles.inputMethodIcon}>✏️</Text>
-                    <Text style={styles.inputMethodText}>Custom Food Input</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={styles.inputMethodButton}
-                    onPress={() => {
-                      setShowAddFood(false);
-                      setShowFoodCamera(true);
-                    }}
-                  >
-                    <Text style={styles.inputMethodIcon}>📷</Text>
-                    <Text style={styles.inputMethodText}>Camera Recognition</Text>
-                    <Text style={styles.inputMethodBeta}>BETA</Text>
-                  </TouchableOpacity>
-                </View>
-                
-                <View style={styles.inputMethodDivider}>
-                  <Text style={styles.inputMethodDividerText}>or continue with search below</Text>
-                </View>
-              </View>
-            )}
-            
-            {/* Custom Food Input Form */}
-            {showCustomInput && !selectedFood && (
-              <View style={styles.customInputSection}>
-                <Text style={styles.customInputTitle}>Manual Food Entry</Text>
-                
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Food Name *</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    placeholder="e.g., Restaurant Pasta, Protein Bar"
-                    value={customFoodData.name}
-                    onChangeText={(text) => setCustomFoodData(prev => ({...prev, name: text}))}
-                    placeholderTextColor="#999"
-                  />
-                </View>
-                
-                <View style={styles.inputRow}>
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Calories per serving *</Text>
-                    <TextInput
-                      style={styles.modalInput}
-                      placeholder="350"
-                      value={customFoodData.calories}
-                      onChangeText={(text) => setCustomFoodData(prev => ({...prev, calories: text}))}
-                      keyboardType="numeric"
-                      placeholderTextColor="#999"
-                    />
-                  </View>
-                  
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Number of servings *</Text>
-                    <TextInput
-                      style={styles.modalInput}
-                      placeholder="1"
-                      value={customFoodData.servings}
-                      onChangeText={(text) => setCustomFoodData(prev => ({...prev, servings: text}))}
-                      keyboardType="decimal-pad"
-                      placeholderTextColor="#999"
-                    />
-                  </View>
-                </View>
-                
-                <View style={styles.inputRow}>
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Protein (g)</Text>
-                    <TextInput
-                      style={styles.modalInput}
-                      placeholder="0"
-                      value={customFoodData.protein}
-                      onChangeText={(text) => setCustomFoodData(prev => ({...prev, protein: text}))}
-                      keyboardType="decimal-pad"
-                      placeholderTextColor="#999"
-                    />
-                  </View>
-                  
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Carbs (g)</Text>
-                    <TextInput
-                      style={styles.modalInput}
-                      placeholder="0"
-                      value={customFoodData.carbs}
-                      onChangeText={(text) => setCustomFoodData(prev => ({...prev, carbs: text}))}
-                      keyboardType="decimal-pad"
-                      placeholderTextColor="#999"
-                    />
-                  </View>
-                </View>
-                
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Fat (g)</Text>
-                  <TextInput
-                    style={styles.modalInput}
-                    placeholder="0"
-                    value={customFoodData.fat}
-                    onChangeText={(text) => setCustomFoodData(prev => ({...prev, fat: text}))}
-                    keyboardType="decimal-pad"
-                    placeholderTextColor="#999"
-                  />
-                </View>
-                
-                {customFoodData.name && customFoodData.calories && customFoodData.servings && (
-                  <View style={styles.nutritionInfo}>
-                    <Text style={styles.nutritionTitle}>Total Nutrition</Text>
-                    <View style={styles.nutritionRow}>
-                      <Text style={styles.nutritionItem}>
-                        🔥 {Math.round((parseFloat(customFoodData.calories) || 0) * (parseFloat(customFoodData.servings) || 1))} cal
-                      </Text>
-                      <Text style={styles.nutritionItem}>
-                        🥩 {Math.round(((parseFloat(customFoodData.protein) || 0) * (parseFloat(customFoodData.servings) || 1)) * 10) / 10}g protein
-                      </Text>
-                    </View>
-                    <View style={styles.nutritionRow}>
-                      <Text style={styles.nutritionItem}>
-                        🍞 {Math.round(((parseFloat(customFoodData.carbs) || 0) * (parseFloat(customFoodData.servings) || 1)) * 10) / 10}g carbs
-                      </Text>
-                      <Text style={styles.nutritionItem}>
-                        🥑 {Math.round(((parseFloat(customFoodData.fat) || 0) * (parseFloat(customFoodData.servings) || 1)) * 10) / 10}g fat
-                      </Text>
-                    </View>
-                  </View>
-                )}
-                
-                <View style={styles.customInputButtons}>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.cancelButton]}
-                    onPress={() => setShowCustomInput(false)}
-                  >
-                    <Text style={styles.cancelButtonText}>Back to Search</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.modalButton, 
-                      styles.saveButton,
-                      (!customFoodData.name || !customFoodData.calories || !customFoodData.servings) && styles.disabledButton
-                    ]}
-                    onPress={() => {
-                      if (!customFoodData.name || !customFoodData.calories || !customFoodData.servings) {
-                        Alert.alert('Error', 'Please fill in food name, calories per serving, and number of servings');
-                        return;
-                      }
-                      saveCustomFood();
-                    }}
-                    disabled={!customFoodData.name || !customFoodData.calories || !customFoodData.servings}
-                  >
-                    <Text style={[
-                      styles.saveButtonText,
-                      (!customFoodData.name || !customFoodData.calories || !customFoodData.servings) && styles.disabledText
-                    ]}>
-                      Add Custom Food
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-            
-            {/* API Status Indicator - only show when not using custom input */}
-            {!showCustomInput && !apiStatus.configured && (
-              <View style={styles.apiWarning}>
-                <Text style={styles.apiWarningText}>⚠️ USDA API not configured</Text>
-                <Text style={styles.apiWarningSubtext}>
-                  Please add your API key to use the food database
-                </Text>
-              </View>
-            )}
-            
-            {/* Search Section - hide when using custom input */}
-            {!showCustomInput && (
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Search Food</Text>
-                <TextInput
-                  style={styles.modalInput}
-                  placeholder={apiStatus.configured ? "Search 400,000+ foods (e.g., chicken breast)" : "Please configure USDA API key first"}
-                  value={searchQuery}
-                  onChangeText={handleSearchFood}
-                  editable={apiStatus.configured}
-                />
-                {isSearching && (
-                  <Text style={styles.searchingText}>Searching USDA database...</Text>
-                )}
-              </View>
-            )}
+      <AddFoodModal
+        visible={showAddFood}
+        onClose={() => setShowAddFood(false)}
+        selectedMeal={selectedMeal}
+        editingEntry={editingEntry}
+        selectedFood={selectedFood}
+        amount={amount}
+        unit={unit}
+        calculatedCalories={calculatedCalories}
+        calculatedNutrition={calculatedNutrition}
+        searchQuery={searchQuery}
+        searchResults={searchResults}
+        isSearching={isSearching}
+        apiStatus={apiStatus}
+        showCustomInput={showCustomInput}
+        useVisualPortions={useVisualPortions}
+        servingUnit={servingUnit}
+        visualPortions={visualPortions}
+        customFoodData={customFoodData}
+        userProfile={userProfile}
+        onSetShowCustomInput={setShowCustomInput}
+        onSetShowFoodCamera={setShowFoodCamera}
+        onHandleSearchFood={handleSearchFood}
+        onSelectFood={selectFood}
+        onHandleAmountChange={handleAmountChange}
+        onHandleUnitChange={handleUnitChange}
+        onSetUseVisualPortions={setUseVisualPortions}
+        onSetVisualPortions={setVisualPortions}
+        onSetServingUnit={setServingUnit}
+        onSetCustomFoodData={setCustomFoodData}
+        onSaveFood={saveFood}
+        onSaveCustomFood={saveCustomFood}
+      />
 
-            {!showCustomInput && searchResults.length > 0 && (
-              <ScrollView style={styles.searchResults} nestedScrollEnabled>
-                {searchResults.slice(0, 8).map((food) => (
-                  <TouchableOpacity
-                    key={food.id}
-                    style={styles.foodResult}
-                    onPress={() => selectFood(food)}
-                  >
-                    <Text style={styles.foodResultName}>{food.name}</Text>
-                    <Text style={styles.foodResultCategory}>{food.category}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-
-            {!showCustomInput && selectedFood && (
-              <>
-                <View style={styles.selectedFoodInfo}>
-                  <Text style={styles.selectedFoodName}>{selectedFood.name}</Text>
-                  <Text style={styles.selectedFoodDetails}>
-                    {Math.round(selectedFood.caloriesPerGram * 100)} cal per 100g
-                  </Text>
-                </View>
-
-                <View style={styles.inputRow}>
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Amount</Text>
-                    <TextInput
-                      style={styles.modalInput}
-                      placeholder="1"
-                      value={amount}
-                      onChangeText={handleAmountChange}
-                      keyboardType="numeric"
-                    />
-                  </View>
-                  
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Unit</Text>
-                    <View style={styles.unitSelector}>
-                      {['g', 'ml', 'fist', 'thumb', 'pinky'].map((unitOption) => (
-                        <TouchableOpacity
-                          key={unitOption}
-                          style={[
-                            styles.unitButton,
-                            unit === unitOption && styles.selectedUnit
-                          ]}
-                          onPress={() => handleUnitChange(unitOption as any)}
-                        >
-                          <Text style={[
-                            styles.unitText,
-                            unit === unitOption && styles.selectedUnitText
-                          ]}>
-                            {unitOption}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                </View>
-
-                {calculatedCalories > 0 && (
-                  <View style={styles.nutritionInfo}>
-                    <Text style={styles.nutritionTitle}>Nutrition (Auto-calculated)</Text>
-                    <View style={styles.nutritionRow}>
-                      <Text style={styles.nutritionItem}>🔥 {calculatedCalories} cal</Text>
-                      <Text style={styles.nutritionItem}>🥩 {calculatedNutrition.protein}g protein</Text>
-                    </View>
-                    <View style={styles.nutritionRow}>
-                      <Text style={styles.nutritionItem}>🍞 {calculatedNutrition.carbs}g carbs</Text>
-                      <Text style={styles.nutritionItem}>🥑 {calculatedNutrition.fat}g fat</Text>
-                    </View>
-                  </View>
-                )}
-
-                {userProfile && (
-                  <View style={styles.measurementHint}>
-                    <Text style={styles.hintTitle}>Your Biometric Guide:</Text>
-                    <Text style={styles.hintText}>
-                      🤛 Fist: ~{formatVolume(userProfile.biometricMeasurements.fistVolume, 'imperial')}
-                    </Text>
-                    <Text style={styles.hintText}>
-                      👍 Thumb: ~{formatVolume(userProfile.biometricMeasurements.thumbVolume, 'imperial')}
-                    </Text>
-                    <Text style={styles.hintText}>
-                      👌 Pinky: ~{formatVolume(userProfile.biometricMeasurements.pinkyVolume, 'imperial')}
-                    </Text>
-                  </View>
-                )}
-              </>
-            )}
-
-            {!showCustomInput && (
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => setShowAddFood(false)}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.modalButton, 
-                    styles.saveButton,
-                    (!selectedFood || !amount) && styles.disabledButton
-                  ]}
-                  onPress={saveFood}
-                  disabled={!selectedFood || !amount}
-                >
-                  <Text style={[
-                    styles.saveButtonText,
-                    (!selectedFood || !amount) && styles.disabledText
-                  ]}>
-                    {editingEntry ? 'Update Food' : 'Add Food'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            </View>
-          </ScrollView>
-        </View>
-      </Modal>
-
-      <Modal visible={!!showDeleteConfirm} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.deleteConfirmModal}>
-            <Text style={styles.deleteConfirmTitle}>Delete Food Entry</Text>
-            <Text style={styles.deleteConfirmText}>
-              Are you sure you want to delete this food entry? This action cannot be undone.
-            </Text>
-            <View style={styles.deleteConfirmButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowDeleteConfirm(null)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmDeleteButton]}
-                onPress={deleteFoodEntryConfirmed}
-              >
-                <Text style={styles.confirmDeleteText}>Delete</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <DeleteConfirmModal
+        visible={!!showDeleteConfirm}
+        onCancel={() => setShowDeleteConfirm(null)}
+        onConfirm={deleteFoodEntryConfirmed}
+      />
       
       <FoodCamera
         visible={showFoodCamera}
@@ -886,10 +513,12 @@ export default function FoodScreen() {
             id: `camera_${Date.now()}`,
             name: result.foodName,
             caloriesPerGram: result.estimatedCalories / result.estimatedWeight,
+            category: 'Camera Recognition',
             protein: 0, // Will be estimated based on food type
             carbs: 0,
             fat: 0,
             fiber: 0,
+            searchTerms: []
           };
           
           setSelectedFood(recognizedFood);
@@ -899,523 +528,10 @@ export default function FoodScreen() {
           setShowAddFood(true);
           
           // Calculate nutrition values
-          calculateNutrition(recognizedFood, result.estimatedWeight.toString(), 'g');
+          updateNutrition(recognizedFood, result.estimatedWeight.toString(), 'g');
         }}
       />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.primary,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: Platform.select({
-      ios: 100, // Extra padding for iOS tab bar
-      android: 80,
-      default: 80,
-    }),
-  },
-  header: {
-    backgroundColor: colors.surface.level1,
-    padding: 20,
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.primary[500],
-    ...colors.shadows.small,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    color: colors.text.primary,
-  },
-  date: {
-    fontSize: 16,
-    color: colors.text.secondary,
-    marginBottom: 10,
-  },
-  calories: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.primary[500],
-  },
-  protein: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.text.secondary,
-  },
-  measurementGuide: {
-    ...getElevationStyle(2),
-    margin: 15,
-    padding: 15,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.primary[500],
-  },
-  guideTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 10,
-    textAlign: 'center',
-    color: colors.text.primary,
-  },
-  guideRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  guideItem: {
-    fontSize: 12,
-    color: colors.text.secondary,
-  },
-  mealsContainer: {
-    padding: 15,
-  },
-  mealSection: {
-    ...getElevationStyle(1),
-    marginBottom: 15,
-    borderRadius: 12,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: colors.border.secondary,
-  },
-  mealHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  mealTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text.primary,
-  },
-  mealCalories: {
-    fontSize: 16,
-    color: colors.primary[500],
-    fontWeight: '500',
-  },
-  mealProtein: {
-    fontSize: 14,
-    color: colors.text.secondary,
-    fontWeight: '400',
-  },
-  mealNutrition: {
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-  },
-  noEntries: {
-    fontSize: 14,
-    color: '#a0a0a0',
-    fontStyle: 'italic',
-    marginBottom: 10,
-  },
-  foodEntry: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#6a6a6a',
-  },
-  foodEntryLeft: {
-    flex: 1,
-  },
-  foodEntryActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  editButton: {
-    backgroundColor: '#a82828',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-  },
-  editButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  deleteButton: {
-    backgroundColor: '#ff3b30',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 4,
-  },
-  deleteButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  foodName: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 2,
-    color: '#ffffff',
-  },
-  foodDetails: {
-    fontSize: 12,
-    color: '#c5c5c5',
-  },
-  addButton: {
-    backgroundColor: colors.primary[500],
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-    ...colors.shadows.button,
-  },
-  addButtonText: {
-    color: colors.text.primary,
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalScrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 20,
-    paddingBottom: 150, // Extra bottom padding for keyboard during custom input
-  },
-  modalScrollContainerCustom: {
-    flexGrow: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    paddingTop: 50,
-    paddingBottom: 200, // Extra bottom padding for keyboard during custom input
-    paddingHorizontal: 10,
-  },
-  modalContent: {
-    backgroundColor: colors.surface.level2,
-    margin: 20,
-    padding: 20,
-    borderRadius: 12,
-    width: '90%',
-    maxWidth: 400,
-    minHeight: 300,
-    ...colors.shadows.large,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: colors.text.primary,
-  },
-  inputGroup: {
-    marginBottom: 15,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 15,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 5,
-    color: '#ffffff',
-  },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: '#6a6a6a',
-    borderRadius: 5,
-    padding: 10,
-    fontSize: 16,
-    backgroundColor: colors.surface.level1,
-    color: colors.text.primary,
-    minHeight: 40,
-  },
-  unitSelector: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  unitButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: '#6a6a6a',
-    borderRadius: 5,
-    backgroundColor: '#4a4a4a',
-  },
-  selectedUnit: {
-    backgroundColor: '#a82828',
-    borderColor: '#007AFF',
-  },
-  unitText: {
-    fontSize: 14,
-    color: '#ffffff',
-  },
-  selectedUnitText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  measurementHint: {
-    backgroundColor: '#4a4a4a',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  hintTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 6,
-    color: '#ffffff',
-  },
-  hintText: {
-    fontSize: 12,
-    color: '#c5c5c5',
-    marginBottom: 2,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 10,
-  },
-  modalButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-    minWidth: 100,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: '#4a4a4a',
-  },
-  cancelButtonText: {
-    color: '#c5c5c5',
-    fontWeight: '600',
-  },
-  saveButton: {
-    backgroundColor: '#a82828',
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  searchResults: {
-    maxHeight: 150,
-    borderWidth: 1,
-    borderColor: '#6a6a6a',
-    borderRadius: 5,
-    marginBottom: 15,
-  },
-  foodResult: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#6a6a6a',
-  },
-  foodResultName: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  foodResultCategory: {
-    fontSize: 12,
-    color: '#c5c5c5',
-    marginTop: 2,
-  },
-  selectedFoodInfo: {
-    backgroundColor: '#4a4a4a',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  selectedFoodName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#a82828',
-  },
-  selectedFoodDetails: {
-    fontSize: 12,
-    color: '#c5c5c5',
-    marginTop: 2,
-  },
-  nutritionInfo: {
-    backgroundColor: '#4a4a4a',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  nutritionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#ffffff',
-  },
-  nutritionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  nutritionItem: {
-    fontSize: 12,
-    color: '#c5c5c5',
-    flex: 1,
-  },
-  disabledButton: {
-    backgroundColor: '#555555',
-  },
-  disabledText: {
-    color: '#a0a0a0',
-  },
-  deleteConfirmModal: {
-    backgroundColor: '#3c3c3c',
-    margin: 20,
-    padding: 20,
-    borderRadius: 10,
-    width: '80%',
-  },
-  deleteConfirmTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'center',
-    color: '#ff3b30',
-  },
-  deleteConfirmText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#ffffff',
-    lineHeight: 22,
-  },
-  deleteConfirmButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  confirmDeleteButton: {
-    backgroundColor: '#ff3b30',
-  },
-  confirmDeleteText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  apiWarning: {
-    backgroundColor: '#8b4513',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#a82828',
-  },
-  apiWarningText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  apiWarningSubtext: {
-    color: '#e0e0e0',
-    fontSize: 12,
-  },
-  searchingText: {
-    color: '#a82828',
-    fontSize: 12,
-    fontStyle: 'italic',
-    marginTop: 5,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  calendarButton: {
-    backgroundColor: '#a82828',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-  },
-  calendarButtonText: {
-    fontSize: 20,
-  },
-  dateButton: {
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    backgroundColor: '#4a4a4a',
-    borderRadius: 6,
-    marginBottom: 8,
-  },
-  inputMethodSection: {
-    marginBottom: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#6a6a6a',
-  },
-  inputMethodTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 15,
-    textAlign: 'center',
-    color: '#ffffff',
-  },
-  inputMethodButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 15,
-  },
-  inputMethodButton: {
-    backgroundColor: '#4a4a4a',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    minWidth: 120,
-    borderWidth: 1,
-    borderColor: '#6a6a6a',
-  },
-  inputMethodIcon: {
-    fontSize: 24,
-    marginBottom: 8,
-  },
-  inputMethodText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  inputMethodBeta: {
-    color: '#a82828',
-    fontSize: 10,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  inputMethodDivider: {
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  inputMethodDividerText: {
-    color: '#c5c5c5',
-    fontSize: 12,
-    fontStyle: 'italic',
-  },
-  customInputSection: {
-    backgroundColor: '#4a4a4a',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#6a6a6a',
-  },
-  customInputTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 15,
-    textAlign: 'center',
-    color: '#a82828',
-  },
-  customInputButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 15,
-    gap: 15,
-  },
-});

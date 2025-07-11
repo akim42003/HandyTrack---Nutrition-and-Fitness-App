@@ -5,13 +5,14 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import React, { useState, useEffect } from 'react';
 
-import { useColorScheme } from '@/hooks/useColorScheme';
+// Removed useColorScheme - forcing dark mode permanently
 import { UserProfile } from '../src/types';
 import { getUserProfile } from '../src/utils/storage';
 import { ProfileSetup } from '../src/screens/ProfileSetup';
+import { AnimatedSplashScreen } from '../src/components/AnimatedSplashScreen';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  // Force dark mode permanently
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
@@ -41,7 +42,7 @@ export default function RootLayout() {
   };
 
   if (!loaded || !profileChecked) {
-    return null;
+    return <AnimatedSplashScreen />;
   }
 
   if (!userProfile) {
@@ -49,12 +50,12 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={DarkTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
-      <StatusBar style="auto" />
+      <StatusBar style="light" />
     </ThemeProvider>
   );
 }

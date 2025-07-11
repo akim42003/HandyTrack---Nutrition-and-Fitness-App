@@ -12,9 +12,10 @@ import {
   Platform,
 } from 'react-native';
 import { CalendarPicker } from '../../src/components/CalendarPicker';
+import { DecimalInput } from '../../src/components/DecimalInput';
 import { ExerciseEntry, ExerciseSet, WorkoutSession, UserProfile } from '../../src/types';
 import { getExerciseEntries, getWorkoutSessions, saveExerciseEntry, saveWorkoutSession, updateWorkoutSession, deleteWorkoutSession, getUserProfile } from '../../src/utils/storage';
-import { formatWeight, parseWeight, getDisplayWeight } from '../../src/utils/unitConversions';
+import { formatWeight, parseWeight, getDisplayWeight, lbsToKg, kgToLbs } from '../../src/utils/unitConversions';
 import { colors, getElevationStyle } from '../../src/styles/colors';
 
 export default function ExerciseScreen() {
@@ -117,25 +118,25 @@ export default function ExerciseScreen() {
     });
   };
 
-  const updateSet = (exerciseIndex: number, setIndex: number, field: 'reps' | 'weight' | 'rpe' | 'notes', value: string) => {
+  const updateSet = (exerciseIndex: number, setIndex: number, field: 'reps' | 'weight' | 'rpe' | 'notes', value: string | number) => {
     if (!currentWorkout) return;
 
     const updatedExercises = [...currentWorkout.exercises];
     
     if (field === 'notes') {
-      updatedExercises[exerciseIndex].sets[setIndex].notes = value;
-    } else {
-      const numValue = parseFloat(value) || 0;
-      
-      if (field === 'reps') {
-        updatedExercises[exerciseIndex].sets[setIndex].reps = Math.floor(numValue);
-      } else if (field === 'weight') {
-        // Convert weight from imperial to kg for storage
-        const weightInKg = parseWeight(value, 'imperial');
-        updatedExercises[exerciseIndex].sets[setIndex].weight = weightInKg;
-      } else if (field === 'rpe') {
-        updatedExercises[exerciseIndex].sets[setIndex].rpe = Math.min(10, Math.max(1, numValue));
-      }
+      updatedExercises[exerciseIndex].sets[setIndex].notes = value as string;
+    } else if (field === 'reps') {
+      updatedExercises[exerciseIndex].sets[setIndex].reps = Math.floor(value as number);
+    } else if (field === 'weight') {
+      // Convert weight from imperial to kg for storage
+      const weightInLbs = value as number;
+      const weightInKg = lbsToKg(weightInLbs);
+      updatedExercises[exerciseIndex].sets[setIndex].weight = weightInKg;
+    } else if (field === 'rpe') {
+      // Allow decimal RPE values between 1 and 10
+      const rpeValue = Math.min(10, Math.max(1, value as number));
+      // Round to 1 decimal place for RPE
+      updatedExercises[exerciseIndex].sets[setIndex].rpe = Math.round(rpeValue * 10) / 10;
     }
 
     setCurrentWorkout({
@@ -418,28 +419,31 @@ export default function ExerciseScreen() {
               <View key={set.id}>
                 <View style={styles.setRow}>
                   <Text style={styles.setNumber}>{setIndex + 1}</Text>
-                  <TextInput
+                  <DecimalInput
                     style={styles.setInput}
                     placeholder="Weight (lbs)"
-                    value={set.weight > 0 ? getDisplayWeight(set.weight, 'imperial') : ''}
-                    onChangeText={(value) => updateSet(exerciseIndex, setIndex, 'weight', value)}
-                    keyboardType="decimal-pad"
+                    value={set.weight > 0 ? kgToLbs(set.weight) : undefined}
+                    onChangeValue={(value) => updateSet(exerciseIndex, setIndex, 'weight', value)}
+                    allowDecimals={true}
+                    returnKeyType="done"
                   />
                   <Text style={styles.setLabel}>lbs</Text>
-                  <TextInput
+                  <DecimalInput
                     style={styles.setInput}
                     placeholder="Reps"
-                    value={set.reps > 0 ? set.reps.toString() : ''}
-                    onChangeText={(value) => updateSet(exerciseIndex, setIndex, 'reps', value)}
-                    keyboardType="numeric"
+                    value={set.reps > 0 ? set.reps : undefined}
+                    onChangeValue={(value) => updateSet(exerciseIndex, setIndex, 'reps', value)}
+                    allowDecimals={false}
+                    returnKeyType="done"
                   />
                   <Text style={styles.setLabel}>reps</Text>
-                  <TextInput
+                  <DecimalInput
                     style={[styles.setInput, styles.rpeInput]}
                     placeholder="RPE"
-                    value={set.rpe ? set.rpe.toString() : ''}
-                    onChangeText={(value) => updateSet(exerciseIndex, setIndex, 'rpe', value)}
-                    keyboardType="numeric"
+                    value={set.rpe}
+                    onChangeValue={(value) => updateSet(exerciseIndex, setIndex, 'rpe', value)}
+                    allowDecimals={true}
+                    returnKeyType="done"
                   />
                   <TouchableOpacity
                     style={styles.setNotesButton}

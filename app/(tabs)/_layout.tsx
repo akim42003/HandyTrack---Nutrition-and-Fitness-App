@@ -5,12 +5,11 @@ import { Platform } from 'react-native';
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+// Removed useColorScheme and Colors - forcing dark mode permanently
 import { colors } from '@/src/styles/colors';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  // Force dark mode permanently
 
   return (
     <Tabs
